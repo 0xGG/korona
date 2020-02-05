@@ -1,0 +1,76 @@
+<html>
+    <head></head>
+    <body></body>
+    <script src="https://unpkg.com/peerjs@1.2.0/dist/peerjs.min.js"></script>
+    <script src="./build/bundle.js"></script>
+    <script>
+function generateUUID() {
+  // Public Domain/MIT
+  var d = new Date().getTime(); //Timestamp
+  var d2 = (performance && performance.now && performance.now() * 1000) || 0; //Time in microseconds since page-load or 0 if unsupported
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16; //random number between 0 and 16
+    if (d > 0) {
+      //Use timestamp until depleted
+      r = (d + r) % 16 | 0;
+      d = Math.floor(d / 16);
+    } else {
+      //Use microseconds since page-load if supported
+      r = (d2 + r) % 16 | 0;
+      d2 = Math.floor(d2 / 16);
+    }
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+async function main() {
+  const peers = [];
+  const totalPeers = 9;
+  const maxPeers = 2;
+  for (let i = 0; i < totalPeers; i++) {
+    peers.push(generateUUID())
+    // peers.push(i.toString())
+  }
+
+  const networks = [];
+  for (let i = 0; i < peers.length; i++) {
+    const network = new Korona({
+      peerID: peers[i],
+      peerJSOptions: {
+        host: "localhost",
+        port: 9000,
+        path: "/peer",
+        secure: false
+        // config: { iceServers: [{ url: "stun:stun.l.google.com:19302" }] }
+      },
+      maxPeers: maxPeers,
+      onOpen: ()=> {
+        console.log(`${peers[i]} open`)
+      },
+      onConnection: (connection)=> {
+        console.log(`${peers[i]} connected to ${connection.peer}`)
+      },
+      onData: (connection, data)=> {
+        console.log(`${peers[i]} received from ${connection.peer}`, data)
+      },
+      onDisconnected: ()=> {
+        console.log(`${peers[i]} disconnected`)
+      }
+    })
+    networks.push(network)
+  }
+
+
+  for (let i = 0; i < networks.length; i++) {
+    peers.forEach((peer)=> {
+      networks[i].addPeerToNetwork(peer)
+    })
+  } 
+
+  window.networks = networks
+}
+
+main();
+
+    </script>
+</html>

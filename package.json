@@ -1,0 +1,24 @@
+{
+  "name": "korona",
+  "version": "0.0.1",
+  "main": "build/bundle.js",
+  "repository": "git@github.com:0xGG/korona.git",
+  "author": "Yiyi Wang <shd101wyy@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^3.0.0",
+    "@types/node": "^13.7.0",
+    "tslib": "^1.10.0",
+    "typescript": "^3.7.5"
+  },
+  "scripts": {
+    "build": "rollup --config rollup.config.js",
+    "build:watch": "rollup -w --config rollup.config.js",
+    "prepare": "npm run build",
+    "test": "jest --no-coverage",
+    "test:coverage": "jest"
+  },
+  "dependencies": {
+    "peerjs": "^1.2.0"
+  }
+}
