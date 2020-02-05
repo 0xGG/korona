@@ -1,0 +1,28 @@
+{
+  "name": "korona",
+  "version": "0.0.1",
+  "main": "index.js",
+  "repository": "git@github.com:0xGG/korona.git",
+  "author": "Yiyi Wang <shd101wyy@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^3.7.5"
+  },
+  "scripts": {
+    "build": "tsc --project .",
+    "build:watch": "tsc --project . --watch",
+    "check:all": "npm run check:prettier && npm run check:tsc && npm run check:tslint",
+    "check:prettier": "prettier --check \"**/*.*\"",
+    "check:tsc": "tsc --project . --noEmit",
+    "check:tslint": "tslint --project .",
+    "fix": "npm run fix:tslint && npm run fix:prettier",
+    "fix:prettier": "prettier --write \"**/*.*\"",
+    "fix:tslint": "tslint --project .",
+    "prepare": "npm run build",
+    "test": "jest --no-coverage",
+    "test:coverage": "jest"
+  },
+  "dependencies": {
+    "peerjs": "^1.2.0"
+  }
+}
