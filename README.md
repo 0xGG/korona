@@ -5,6 +5,12 @@
 
 Minimal library to quickly construct decentralized p2p network
 
+## Demo
+
+Simple Korona P2P Chat application:
+
+https://0xgg.github.io/korona/
+
 ## Usages
 
 TODO
