@@ -5,6 +5,12 @@
 
 Minimal library to quickly construct decentralized p2p network
 
+## Installation
+
+```bash
+$ npm install @0xgg/korona
+```
+
 ## Demo
 
 Simple Korona P2P Chat application:
