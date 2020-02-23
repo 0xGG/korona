@@ -189,7 +189,7 @@
           document.getElementById("peer-id").innerText = peerID;
           document.getElementById("peer-id").style.color = randomColorGenerator.generateColor(peerID);
           document.getElementById("shareable-link").innerText =
-            location.protocol + "//" + location.host + "?peerID=" + peerID;
+            location.protocol + "//" + location.host + location.pathname + "?peerID=" + peerID;
           
           messageInput.placeholder = "Enter your message here"
           messageInput.disabled = false;
