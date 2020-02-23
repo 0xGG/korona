@@ -1,5 +1,5 @@
 {
-  "name": "korona",
+  "name": "@shd101wyy/korona",
   "version": "0.0.1",
   "main": "build/bundle.js",
   "repository": "git@github.com:0xGG/korona.git",
