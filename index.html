@@ -154,8 +154,12 @@
       const messageInput = document.getElementById("message-input");
       const sendButton = document.getElementById("send-button");
 
-      const appendMessageElement = (peerID, message)=> {
-        chatMessages.push({peerID: peerID, message: message});
+      const appendMessageElement = (messageID, peerID, message)=> {
+        if (chatMessages.find(m => m.id === messageID)) { // Message already exists
+          return;
+        }
+
+        chatMessages.push({id: messageID, peerID: peerID, message: message});
         const messageContainer = document.createElement("div");
         messageContainer.classList.add("message-container")
         const sender = document.createElement("code");
@@ -200,14 +204,16 @@
               messageInput.focus();
 
               // broadcast
+              const messageID = randomID();
               peer.send({
                 type: "SendMessage",
+                id: messageID,
                 peerID: peerID,
                 message: value
               });
 
               // create dom element
-              appendMessageElement(peerID, value);
+              appendMessageElement(messageID, peerID, value);
           }
 
           messageInput.addEventListener("keydown", (event)=> {
@@ -237,7 +243,18 @@
         onData: (data)=> {
           console.log("received data: ", data)
           if (data.type === "SendMessage") {
-            appendMessageElement(data.peerID, data.message);
+            appendMessageElement(data.id, data.peerID, data.message);
+          } else if (data.type === "ChatMessages") {
+            const chatMessages = data.messages;
+            chatMessages.forEach((chatMessage)=> {
+              appendMessageElement(chatMessage.id, chatMessage.peerID, chatMessage.message);
+            })
+          }
+        },
+        createDataForInitialSync: ()=> {
+          return {
+            type: "ChatMessages",
+            messages: chatMessages,
           }
         }
       });

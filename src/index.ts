@@ -18,7 +18,7 @@ export interface KoronaOptions {
   onDisconnected?: () => void;
   onPeerJoined?: (peerID: string) => void;
   onPeerLeft?: (peerID: string) => void;
-  createInitialDataToSync?: () => object;
+  createDataForInitialSync?: () => object;
 }
 
 export enum RequestType {
@@ -40,7 +40,7 @@ export class Korona {
   private _onData: (data: any, connection: Peer.DataConnection) => void;
   private _onPeerJoined: (peerID: string) => void;
   private _onPeerLeft: (peerID: string) => void;
-  private _createInitialDataToSync?: () => object;
+  private _createDataForInitialSync?: () => object;
 
   /**
    * List of peer IDs
@@ -62,9 +62,9 @@ export class Korona {
     this._onData = options.onData;
     this._onPeerJoined = options.onPeerJoined;
     this._onPeerLeft = options.onPeerLeft;
-    this._createInitialDataToSync = options.createInitialDataToSync;
-    if (!this._createInitialDataToSync) {
-      this._createInitialDataToSync = () => {
+    this._createDataForInitialSync = options.createDataForInitialSync;
+    if (!this._createDataForInitialSync) {
+      this._createDataForInitialSync = () => {
         return {};
       };
     }
@@ -158,9 +158,10 @@ export class Korona {
           this.removeFromNetwork(dataObj.oldPeer);
           break;
         case RequestType.SyncResponse:
-          this.handleSync(dataObj);
+          this.handleSyncResponse(dataObj);
           break;
         case RequestType.SyncCompleted:
+          this.handleSyncCompleted(dataObj);
           break;
         default:
           this.handleRemoteOperation(dataObj, connection);
@@ -200,16 +201,11 @@ export class Korona {
     this.addToOutConns(connBack);
     this.addToNetwork(peerID);
 
-    const initialData: any = JSON.stringify(
-      Object.assign(
-        {
-          type: RequestType.SyncResponse,
-          peerID: this.peer.id,
-          network: this.network
-        },
-        this._createInitialDataToSync()
-      )
-    );
+    const initialData: any = JSON.stringify({
+      type: RequestType.SyncResponse,
+      peerID: this.peer.id,
+      network: this.network
+    });
 
     if (connBack.open) {
       connBack.send(initialData);
@@ -342,7 +338,7 @@ export class Korona {
     }
   }
 
-  handleSync(operation: any) {
+  handleSyncResponse(operation: any) {
     const fromPeerID = operation.peerID;
     const network: string[] = operation.network || [];
     network.forEach(peerID => this.addToNetwork(peerID));
@@ -364,6 +360,33 @@ export class Korona {
       } else {
         connection.on("open", () => {
           connection.send(completedMessage);
+        });
+      }
+    }
+  }
+
+  handleSyncCompleted(operation: any) {
+    const fromPeerID = operation.peerID;
+    this.versionVector.increment();
+    let connection = this.outConns.find(conn => conn.peer === fromPeerID);
+    const dataToSend = JSON.stringify(
+      Object.assign(this._createDataForInitialSync(), {
+        _v: {
+          p: this.peer.id,
+          c: this.versionVector.localVersion.counter
+        }
+      })
+    );
+    if (connection) {
+      connection.send(dataToSend);
+    } else {
+      connection = this.peer.connect(fromPeerID);
+      this.addToOutConns(connection);
+      if (connection.open) {
+        connection.send(dataToSend);
+      } else {
+        connection.on("open", () => {
+          connection.send(dataToSend);
         });
       }
     }

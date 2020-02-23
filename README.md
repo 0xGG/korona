@@ -4,3 +4,13 @@
 仅已此库纪念 2020 年那些勇敢与新冠状病毒抗争的人们。
 
 Minimal library to quickly construct decentralized p2p network
+
+## Usages
+
+TODO
+
+Check the `index.html` for example usages.
+
+## License
+
+MIT
