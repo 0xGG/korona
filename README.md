@@ -11,6 +11,11 @@ TODO
 
 Check the `index.html` for example usages.
 
+## References
+
+- https://github.com/conclave-team/conclave
+- https://hal.archives-ouvertes.fr/hal-00921633/document
+
 ## License
 
 MIT
