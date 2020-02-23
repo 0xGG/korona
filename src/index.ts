@@ -76,23 +76,30 @@ export class Korona {
 
   send(operation: object) {
     let operationJSON: any;
+    let fromPeerID: string;
     if ("_v" in operation) {
+      fromPeerID = (operation as any)["_v"]["p"];
       // Already has Version information
       operationJSON = JSON.stringify(operation);
     } else {
+      fromPeerID = this.peer.id;
       this.versionVector.increment();
       operationJSON = JSON.stringify(
         Object.assign(operation, {
           _v: {
             // Version
-            p: this.peer.id,
+            p: fromPeerID,
             c: this.versionVector.localVersion.counter
           }
         })
       );
     }
 
-    this.outConns.forEach(conn => conn.send(operationJSON));
+    this.outConns.forEach(conn => {
+      if (fromPeerID !== conn.peer) {
+        conn.send(operationJSON);
+      }
+    });
   }
 
   onOpen() {

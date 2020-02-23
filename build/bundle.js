@@ -121,21 +121,28 @@
       }
       Korona.prototype.send = function (operation) {
           var operationJSON;
+          var fromPeerID;
           if ("_v" in operation) {
+              fromPeerID = operation["_v"]["p"];
               // Already has Version information
               operationJSON = JSON.stringify(operation);
           }
           else {
+              fromPeerID = this.peer.id;
               this.versionVector.increment();
               operationJSON = JSON.stringify(Object.assign(operation, {
                   _v: {
                       // Version
-                      p: this.peer.id,
+                      p: fromPeerID,
                       c: this.versionVector.localVersion.counter
                   }
               }));
           }
-          this.outConns.forEach(function (conn) { return conn.send(operationJSON); });
+          this.outConns.forEach(function (conn) {
+              if (fromPeerID !== conn.peer) {
+                  conn.send(operationJSON);
+              }
+          });
       };
       Korona.prototype.onOpen = function () {
           var _this = this;
