@@ -1,76 +1,250 @@
 <html>
-    <head></head>
-    <body></body>
-    <script src="https://unpkg.com/peerjs@1.2.0/dist/peerjs.min.js"></script>
-    <script src="./build/bundle.js"></script>
-    <script>
-function generateUUID() {
-  // Public Domain/MIT
-  var d = new Date().getTime(); //Timestamp
-  var d2 = (performance && performance.now && performance.now() * 1000) || 0; //Time in microseconds since page-load or 0 if unsupported
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16; //random number between 0 and 16
-    if (d > 0) {
-      //Use timestamp until depleted
-      r = (d + r) % 16 | 0;
-      d = Math.floor(d / 16);
-    } else {
-      //Use microseconds since page-load if supported
-      r = (d2 + r) % 16 | 0;
-      d2 = Math.floor(d2 / 16);
-    }
-    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-  });
-}
-
-async function main() {
-  const peers = [];
-  const totalPeers = 9;
-  const maxPeers = 2;
-  for (let i = 0; i < totalPeers; i++) {
-    peers.push(generateUUID())
-    // peers.push(i.toString())
-  }
-
-  const networks = [];
-  for (let i = 0; i < peers.length; i++) {
-    const network = new Korona({
-      peerID: peers[i],
-      peerJSOptions: {
-        host: "localhost",
-        port: 9000,
-        path: "/peer",
-        secure: false
-        // config: { iceServers: [{ url: "stun:stun.l.google.com:19302" }] }
-      },
-      maxPeers: maxPeers,
-      onOpen: ()=> {
-        console.log(`${peers[i]} open`)
-      },
-      onConnection: (connection)=> {
-        console.log(`${peers[i]} connected to ${connection.peer}`)
-      },
-      onData: (connection, data)=> {
-        console.log(`${peers[i]} received from ${connection.peer}`, data)
-      },
-      onDisconnected: ()=> {
-        console.log(`${peers[i]} disconnected`)
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2196F1" />
+    <title>Korona P2P Chat</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
       }
-    })
-    networks.push(network)
-  }
+      code {
+        color: #f50;
+        /* border: 1px solid #f50;
+        padding: 2px 6px;
+        border-radius: 4px;*/
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        background-color: #222;
+        color: #fff;
+        font-family: Arial;
+        height: 100%;
+      }
+
+      #shareable-link {
+        cursor: pointer;
+      }
+
+      #top-panel {
+        padding: 8px;
+      }
+      #top-panel p {
+        margin: 2px;
+      }
+      #chat-panel {
+        flex: 1;
+        padding: 0 8px;
+        overflow-y: auto;
+      }
+      #bottom-panel {
+        padding: 8px;
+        display: flex;
+        flex-direction: row;
+      }
+      #message-input {
+        flex: 1;
+        padding: 8px;
+        margin-right: 4px;
+      }
+      #send-button {
+        cursor: pointer;
+      }
+
+      .message-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        margin: 8px 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      code.sender {
+        margin-right: 8px;
+      }
+      p.message {
+        margin: 0;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="top-panel">
+      <p>Your id is <code id="peer-id">connecting...</code>, currently <code id="peers-number">0</code> peer(s) online</code></p>
+      <p>
+        Copy <code id="shareable-link" onclick="selectText(this.id)">connecting...</code> to your friends to let
+        them join your chat
+      </p>
+    </div>
+    <div id="chat-panel">
+
+    </div>
+    <div id="bottom-panel">
+      <input id="message-input" placeholder="Please wait..." autofocus disabled /> 
+      <button id="send-button">Send</button>
+    </div>
+  </body>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.2.0/dist/peerjs.min.js"></script>
+  <script src="./build/bundle.js"></script>
+  <script>
+    function randomID() {
+      return Math.random()
+        .toString(36)
+        .substr(2, 9);
+    }
+
+    class RandomColorGenerator {
+      constructor() {
+        this.cache = {};
+      }
+      hashCode(s) {
+        let n = s.split("").reduce(function(a, b) {
+          a = (a << 5) - a + b.charCodeAt(0);
+          return a & a;
+        }, 0);
+        n = Math.abs(n);
+        const x = "0." + n.toString();
+        return parseFloat(x);
+      }
+      generateColor(key) {
+        if (key in this.cache) {
+          return this.cache[key];
+        } else {
+          const color =
+            "#" +
+            (((1 << 24) * /* Math.random() */ this.hashCode(key)) | 0).toString(16);
+          this.cache[key] = color;
+          return color;
+        }
+      }
+    }
+
+    function selectText(id){
+      var sel, range;
+      var el = document.getElementById(id); //get element id
+      if (window.getSelection && document.createRange) { //Browser compatibility
+        sel = window.getSelection();
+        if(sel.toString() == ''){ //no text selection
+        window.setTimeout(function(){
+          range = document.createRange(); //range object
+          range.selectNodeContents(el); //sets Range
+          sel.removeAllRanges(); //remove all ranges from selection
+          sel.addRange(range);//add Range to a Selection.
+        },1);
+        }
+      }else if (document.selection) { //older ie
+        sel = document.selection.createRange();
+        if(sel.text == ''){ //no text selection
+          range = document.body.createTextRange();//Creates TextRange object
+          range.moveToElementText(el);//sets Range
+          range.select(); //make selection.
+        }
+      }
+    }
+
+    async function main() {
+      const randomColorGenerator = new RandomColorGenerator();
+      const maxPeers = 5;
+      const peerID = randomID();
+      const chatMessages = [];
+      const chatPanel = document.getElementById("chat-panel");
+      const messageInput = document.getElementById("message-input");
+      const sendButton = document.getElementById("send-button");
+
+      const appendMessageElement = (peerID, message)=> {
+        chatMessages.push({peerID: peerID, message: message});
+        const messageContainer = document.createElement("div");
+        messageContainer.classList.add("message-container")
+        const sender = document.createElement("code");
+        sender.classList.add("sender")
+        sender.innerText = peerID
+        sender.style.color = randomColorGenerator.generateColor(peerID);
+        const messageElement = document.createElement("p");
+        messageElement.classList.add("message");
+        messageElement.innerText = message;
+        messageContainer.appendChild(sender);
+        messageContainer.appendChild(messageElement);
+        chatPanel.appendChild(messageContainer)
 
 
-  for (let i = 0; i < networks.length; i++) {
-    peers.forEach((peer)=> {
-      networks[i].addPeerToNetwork(peer)
-    })
-  } 
+        chatPanel.scrollTop = chatPanel.scrollHeight * 2;
+      }
 
-  window.networks = networks
-}
+      const peer = new Korona.Korona({
+        peerID: peerID,
+        peerJSOptions: {
+          host: "crossnote.app",
+          path: "/peer",
+          secure: true
+          // config: { iceServers: [{ url: "stun:stun.l.google.com:19302" }] }
+        },
+        onOpen: () => {
+          document.getElementById("peer-id").innerText = peerID;
+          document.getElementById("peer-id").style.color = randomColorGenerator.generateColor(peerID);
+          document.getElementById("shareable-link").innerText =
+            location.protocol + "//" + location.host + "?peerID=" + peerID;
+          
+          messageInput.placeholder = "Enter your message here"
+          messageInput.disabled = false;
 
-main();
+          const sendMessage = ()=> {
+            const value = messageInput.value.trim();
+              if (!value.length) {
+                messageInput.value = "";
+                return;
+              }
+              messageInput.value = "";
+              messageInput.focus();
 
-    </script>
+              // broadcast
+              peer.send({
+                type: "SendMessage",
+                peerID: peerID,
+                message: value
+              });
+
+              // create dom element
+              appendMessageElement(peerID, value);
+          }
+
+          messageInput.addEventListener("keydown", (event)=> {
+            if (event.which === 13) {
+             sendMessage();
+            }
+          })
+          sendButton.addEventListener("click", ()=> {
+            sendMessage();
+          })
+
+
+          const targetPeerIDMatch = location.search.match(/peerID\=(.+)$/);
+          if (targetPeerIDMatch) {
+            const targetPeerID = targetPeerIDMatch[1];
+            peer.requestConnection(targetPeerID);
+          }
+        },
+        onPeerJoined: peerID => {
+          console.log("peer joined: ", peerID);
+          document.getElementById("peers-number").innerText = peer.network.length;
+        },
+        onPeerLeft: peerID => {
+          console.log("peer left: ", peerID);
+          document.getElementById("peers-number").innerText = peer.network.length;
+        },
+        onData: (data)=> {
+          console.log("received data: ", data)
+          if (data.type === "SendMessage") {
+            appendMessageElement(data.peerID, data.message);
+          }
+        }
+      });
+
+      window["peer"] = peer;
+    }
+
+    main();
+  </script>
 </html>

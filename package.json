@@ -18,6 +18,9 @@
     "test": "jest --no-coverage",
     "test:coverage": "jest"
   },
+  "files": [
+    "build"
+  ],
   "dependencies": {
     "peerjs": "^1.2.0"
   }
