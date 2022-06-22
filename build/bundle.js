@@ -83,9 +83,7 @@
   }());
 
   function randomID() {
-      return Math.random()
-          .toString(36)
-          .substr(2, 9);
+      return Math.random().toString(36).substr(2, 9);
   }
   (function (RequestType) {
       RequestType["ConnectionRequest"] = "cr";
@@ -134,8 +132,8 @@
                   _v: {
                       // Version
                       p: fromPeerID,
-                      c: this.versionVector.localVersion.counter
-                  }
+                      c: this.versionVector.localVersion.counter,
+                  },
               }));
           }
           this.outConns.forEach(function (conn) {
@@ -240,7 +238,7 @@
           var randomIdx = Math.floor(Math.random() * connected.length);
           connected[randomIdx].send(JSON.stringify({
               type: exports.RequestType.ConnectionRequest,
-              peerID: peerID
+              peerID: peerID,
           }));
       };
       Korona.prototype.acceptConnRequest = function (peerID) {
@@ -250,7 +248,7 @@
           var initialData = JSON.stringify({
               type: exports.RequestType.SyncResponse,
               peerID: this.peer.id,
-              network: this.network
+              network: this.network,
           });
           if (connBack.open) {
               connBack.send(initialData);
@@ -269,7 +267,7 @@
               }
               this.send({
                   type: exports.RequestType.AddToNetwork,
-                  newPeer: peerID
+                  newPeer: peerID,
               });
           }
       };
@@ -287,7 +285,7 @@
               }
               this.send({
                   type: exports.RequestType.RemoveFromNetwork,
-                  oldPeer: peerID
+                  oldPeer: peerID,
               });
           }
       };
@@ -318,7 +316,7 @@
           this.addToOutConns(conn);
           var dataToSend = JSON.stringify({
               type: exports.RequestType.ConnectionRequest,
-              peerID: peerID
+              peerID: peerID,
           });
           if (conn.open) {
               conn.send(dataToSend);
@@ -367,7 +365,7 @@
           // Sync complete
           var completedMessage = JSON.stringify({
               type: exports.RequestType.SyncCompleted,
-              peerID: this.peer.id
+              peerID: this.peer.id,
           });
           var connection = this.outConns.find(function (conn) { return conn.peer === fromPeerID; });
           if (connection) {
@@ -393,8 +391,8 @@
           var dataToSend = JSON.stringify(Object.assign(this._createDataForInitialSync(), {
               _v: {
                   p: this.peer.id,
-                  c: this.versionVector.localVersion.counter
-              }
+                  c: this.versionVector.localVersion.counter,
+              },
           }));
           if (connection) {
               connection.send(dataToSend);
