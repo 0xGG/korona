@@ -1,6 +1,6 @@
 {
   "name": "@0xgg/korona",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": "out/src/index.js",
   "repository": "git@github.com:0xGG/korona.git",
   "author": "Yiyi Wang <shd101wyy@gmail.com>",
@@ -22,7 +22,8 @@
     "test:coverage": "jest"
   },
   "files": [
-    "build"
+    "build",
+    "out"
   ],
   "dependencies": {
     "peerjs": "^1.4.6"
