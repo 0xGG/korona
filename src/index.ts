@@ -1,20 +1,18 @@
-import Peer from "peerjs";
+import Peer, { PeerJSOption, DataConnection } from "peerjs";
 import VersionVector from "./versionVector";
 import Version from "./version";
 
 export function randomID() {
-  return Math.random()
-    .toString(36)
-    .substr(2, 9);
+  return Math.random().toString(36).substr(2, 9);
 }
 
 export interface KoronaOptions {
   peerID: string;
-  peerJSOptions: Peer.PeerJSOption;
+  peerJSOptions: PeerJSOption;
   maxPeers?: number;
   onOpen?: () => void;
   // onConnection?: (connection: Peer.DataConnection) => void;
-  onData?: (data: any, connection: Peer.DataConnection) => void;
+  onData?: (data: any, connection: DataConnection) => void;
   onDisconnected?: () => void;
   onPeerJoined?: (peerID: string) => void;
   onPeerLeft?: (peerID: string) => void;
@@ -26,18 +24,18 @@ export enum RequestType {
   RemoveFromNetwork = "rfn",
   AddToNetwork = "adn",
   SyncResponse = "sr",
-  SyncCompleted = "sc"
+  SyncCompleted = "sc",
 }
 
 export class Korona {
   private peer: Peer;
-  private outConns: Peer.DataConnection[];
-  private inConns: Peer.DataConnection[];
+  private outConns: DataConnection[];
+  private inConns: DataConnection[];
   private maxPeers: number;
   private versionVector: VersionVector;
   private _onOpen?: () => void;
   private _onDisconnected: () => void;
-  private _onData: (data: any, connection: Peer.DataConnection) => void;
+  private _onData: (data: any, connection: DataConnection) => void;
   private _onPeerJoined: (peerID: string) => void;
   private _onPeerLeft: (peerID: string) => void;
   private _createDataForInitialSync?: () => object;
@@ -89,13 +87,13 @@ export class Korona {
           _v: {
             // Version
             p: fromPeerID,
-            c: this.versionVector.localVersion.counter
-          }
+            c: this.versionVector.localVersion.counter,
+          },
         })
       );
     }
 
-    this.outConns.forEach(conn => {
+    this.outConns.forEach((conn) => {
       if (fromPeerID !== conn.peer) {
         conn.send(operationJSON);
       }
@@ -103,7 +101,7 @@ export class Korona {
   }
 
   onOpen() {
-    this.peer.on("open", id => {
+    this.peer.on("open", (id) => {
       this.versionVector = new VersionVector(id);
 
       this.onPeerConnection();
@@ -118,17 +116,17 @@ export class Korona {
   }
 
   onPeerConnection() {
-    this.peer.on("connection", connection => {
+    this.peer.on("connection", (connection) => {
       this.onConnection(connection);
       this.onData(connection);
       this.onConnClose(connection);
     });
   }
-  onConnection(connection: Peer.DataConnection) {
+  onConnection(connection: DataConnection) {
     this.addToInConns(connection);
   }
   onError() {
-    this.peer.on("error", err => {
+    this.peer.on("error", (err) => {
       const pid = String(err).replace("Error: Could not connect to peer ", "");
       this.removeFromConnections(pid);
       if (!this.peer.disconnected) {
@@ -144,8 +142,8 @@ export class Korona {
       }
     });
   }
-  onData(connection: Peer.DataConnection) {
-    connection.on("data", data => {
+  onData(connection: DataConnection) {
+    connection.on("data", (data: any) => {
       let dataObj: any = {};
 
       try {
@@ -175,7 +173,7 @@ export class Korona {
       }
     });
   }
-  onConnClose(connection: Peer.DataConnection) {
+  onConnClose(connection: DataConnection) {
     connection.on("close", () => {
       this.removeFromConnections(connection.peer);
       if (!this.hasReachMax()) {
@@ -193,12 +191,12 @@ export class Korona {
   }
 
   forwardConnRequest(peerID: string) {
-    const connected = this.outConns.filter(conn => conn.peer !== peerID);
+    const connected = this.outConns.filter((conn) => conn.peer !== peerID);
     const randomIdx = Math.floor(Math.random() * connected.length);
     connected[randomIdx].send(
       JSON.stringify({
         type: RequestType.ConnectionRequest,
-        peerID: peerID
+        peerID: peerID,
       })
     );
   }
@@ -211,7 +209,7 @@ export class Korona {
     const initialData: any = JSON.stringify({
       type: RequestType.SyncResponse,
       peerID: this.peer.id,
-      network: this.network
+      network: this.network,
     });
 
     if (connBack.open) {
@@ -224,7 +222,7 @@ export class Korona {
   }
 
   addToNetwork(peerID: string) {
-    if (!this.network.find(p => p === peerID)) {
+    if (!this.network.find((p) => p === peerID)) {
       this.network.push(peerID);
       if (this._onPeerJoined) {
         this._onPeerJoined(peerID);
@@ -232,14 +230,14 @@ export class Korona {
 
       this.send({
         type: RequestType.AddToNetwork,
-        newPeer: peerID
+        newPeer: peerID,
       });
     }
   }
 
   removeFromConnections(peerID: string) {
-    this.inConns = this.inConns.filter(conn => conn.peer !== peerID);
-    this.outConns = this.outConns.filter(conn => conn.peer !== peerID);
+    this.inConns = this.inConns.filter((conn) => conn.peer !== peerID);
+    this.outConns = this.outConns.filter((conn) => conn.peer !== peerID);
     this.removeFromNetwork(peerID);
   }
 
@@ -253,7 +251,7 @@ export class Korona {
 
       this.send({
         type: RequestType.RemoveFromNetwork,
-        oldPeer: peerID
+        oldPeer: peerID,
       });
     }
   }
@@ -269,12 +267,12 @@ export class Korona {
   }
 
   findNewTarget() {
-    const connected = this.outConns.map(conn => conn.peer);
+    const connected = this.outConns.map((conn) => conn.peer);
     const unconnected = this.network.filter(
-      peerID => connected.indexOf(peerID) === -1
+      (peerID) => connected.indexOf(peerID) === -1
     );
     const possibleTargets = unconnected.filter(
-      peerID => peerID !== this.peer.id
+      (peerID) => peerID !== this.peer.id
     );
 
     if (possibleTargets.length === 0) {
@@ -296,7 +294,7 @@ export class Korona {
 
     const dataToSend = JSON.stringify({
       type: RequestType.ConnectionRequest,
-      peerID: peerID
+      peerID: peerID,
     });
     if (conn.open) {
       conn.send(dataToSend);
@@ -307,27 +305,27 @@ export class Korona {
     }
   }
 
-  addToInConns(connection: Peer.DataConnection) {
+  addToInConns(connection: DataConnection) {
     if (!!connection && !this.isAlreadyConnectedIn(connection)) {
       this.inConns.push(connection);
     }
   }
 
-  addToOutConns(connection: Peer.DataConnection) {
+  addToOutConns(connection: DataConnection) {
     if (!!connection && !this.isAlreadyConnectedOut(connection)) {
       this.outConns.push(connection);
     }
   }
 
-  isAlreadyConnectedOut(connection: Peer.DataConnection) {
-    return !!this.outConns.find(conn => conn.peer === connection.peer);
+  isAlreadyConnectedOut(connection: DataConnection) {
+    return !!this.outConns.find((conn) => conn.peer === connection.peer);
   }
 
-  isAlreadyConnectedIn(connection: Peer.DataConnection) {
-    return !!this.inConns.find(conn => conn.peer === connection.peer);
+  isAlreadyConnectedIn(connection: DataConnection) {
+    return !!this.inConns.find((conn) => conn.peer === connection.peer);
   }
 
-  handleRemoteOperation(operation: any, connection: Peer.DataConnection) {
+  handleRemoteOperation(operation: any, connection: DataConnection) {
     const v = operation._v;
     if (
       v &&
@@ -348,15 +346,15 @@ export class Korona {
   handleSyncResponse(operation: any) {
     const fromPeerID = operation.peerID;
     const network: string[] = operation.network || [];
-    network.forEach(peerID => this.addToNetwork(peerID));
+    network.forEach((peerID) => this.addToNetwork(peerID));
 
     // Sync complete
     const completedMessage = JSON.stringify({
       type: RequestType.SyncCompleted,
-      peerID: this.peer.id
+      peerID: this.peer.id,
     });
 
-    let connection = this.outConns.find(conn => conn.peer === fromPeerID);
+    let connection = this.outConns.find((conn) => conn.peer === fromPeerID);
     if (connection) {
       connection.send(completedMessage);
     } else {
@@ -375,13 +373,13 @@ export class Korona {
   handleSyncCompleted(operation: any) {
     const fromPeerID = operation.peerID;
     this.versionVector.increment();
-    let connection = this.outConns.find(conn => conn.peer === fromPeerID);
+    let connection = this.outConns.find((conn) => conn.peer === fromPeerID);
     const dataToSend = JSON.stringify(
       Object.assign(this._createDataForInitialSync(), {
         _v: {
           p: this.peer.id,
-          c: this.versionVector.localVersion.counter
-        }
+          c: this.versionVector.localVersion.counter,
+        },
       })
     );
     if (connection) {

@@ -1,20 +1,23 @@
 {
   "name": "@0xgg/korona",
-  "version": "0.0.1",
-  "main": "build/bundle.js",
+  "version": "0.0.2",
+  "main": "out/src/index.js",
   "repository": "git@github.com:0xGG/korona.git",
   "author": "Yiyi Wang <shd101wyy@gmail.com>",
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-typescript": "^3.0.0",
     "@types/node": "^13.7.0",
-    "tslib": "^1.10.0",
-    "typescript": "^3.7.5"
+    "husky": "^8.0.1",
+    "tslib": "^2.4.0",
+    "typescript": "^4.7.4"
   },
   "scripts": {
-    "build": "rollup --config rollup.config.js",
-    "build:watch": "rollup -w --config rollup.config.js",
-    "prepare": "npm run build",
+    "build": "tsc --project .",
+    "build:watch": "tsc --project . --watch",
+    "build:web": "rollup --config rollup.config.js",
+    "build:web:watch": "rollup -w --config rollup.config.js",
+    "prepare": "husky install && npm run build",
     "test": "jest --no-coverage",
     "test:coverage": "jest"
   },
@@ -22,6 +25,6 @@
     "build"
   ],
   "dependencies": {
-    "peerjs": "^1.2.0"
+    "peerjs": "^1.4.6"
   }
 }
