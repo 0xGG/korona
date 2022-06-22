@@ -17,7 +17,7 @@
     "build:watch": "tsc --project . --watch",
     "build:web": "rollup --config rollup.config.js",
     "build:web:watch": "rollup -w --config rollup.config.js",
-    "prepare": "husky install && npm run build",
+    "prepare": "husky install && yarn build && yarn build:web",
     "test": "jest --no-coverage",
     "test:coverage": "jest"
   },
