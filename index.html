@@ -177,19 +177,28 @@
         chatPanel.scrollTop = chatPanel.scrollHeight * 2;
       }
 
+      const targetRoomIdMatch = location.search.match(/roomId\=(.+)$/);
+      let roomId = "";
+      if (targetRoomIdMatch) {
+        roomId = targetRoomIdMatch[1];
+      }
+
       const peer = new Korona.Korona({
         peerId: peerId,
+        roomId: roomId,
         peerJSOptions: {
-          host: "crossnote.app",
-          path: "/peer",
-          secure: true
+          debug: 2
+          // host: "crossnote.app",
+          // path: "/peer",
+          // secure: true,
           // config: { iceServers: [{ url: "stun:stun.l.google.com:19302" }] }
         },
+        maxPeers: 2,
         onOpen: () => {
           document.getElementById("peer-id").innerText = peerId;
           document.getElementById("peer-id").style.color = randomColorGenerator.generateColor(peerId);
           document.getElementById("shareable-link").innerText =
-            location.protocol + "//" + location.host + location.pathname + "?peerId=" + peerId;
+            location.protocol + "//" + location.host + location.pathname + "?peerId=" + peer.peer.id;
           
           messageInput.placeholder = "Enter your message here"
           messageInput.disabled = false;

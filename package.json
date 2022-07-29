@@ -8,6 +8,7 @@
   "devDependencies": {
     "@rollup/plugin-typescript": "^3.0.0",
     "@types/node": "^13.7.0",
+    "http-server": "^14.1.1",
     "husky": "^8.0.1",
     "rollup": "^2.77.2",
     "tslib": "^2.4.0",
@@ -20,7 +21,8 @@
     "build:web:watch": "rollup -w --config rollup.config.js",
     "prepare": "husky install && yarn build && yarn build:web",
     "test": "jest --no-coverage",
-    "test:coverage": "jest"
+    "test:coverage": "jest",
+    "serve:web": "http-server"
   },
   "files": [
     "build",
