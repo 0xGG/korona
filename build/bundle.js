@@ -9,9 +9,9 @@
   var Peer__default = /*#__PURE__*/_interopDefaultLegacy(Peer);
 
   var Version = /** @class */ (function () {
-      function Version(peerID, counter) {
+      function Version(peerId, counter) {
           if (counter === void 0) { counter = 0; }
-          this.peerID = peerID;
+          this.peerId = peerId;
           this.counter = counter;
           this.exceptions = [];
       }
@@ -37,8 +37,8 @@
   }());
 
   var VersionVector = /** @class */ (function () {
-      function VersionVector(peerID) {
-          this.localVersion = new Version(peerID);
+      function VersionVector(peerId) {
+          this.localVersion = new Version(peerId);
           this.versions = [this.localVersion];
       }
       VersionVector.prototype.increment = function () {
@@ -48,7 +48,7 @@
       VersionVector.prototype.update = function (incomingVersion) {
           var existingVersion = this.getVersionFromVectors(incomingVersion);
           if (!existingVersion) {
-              var newVersion = new Version(incomingVersion.peerID);
+              var newVersion = new Version(incomingVersion.peerId);
               newVersion.update(incomingVersion);
               this.versions.push(newVersion);
           }
@@ -69,7 +69,7 @@
       VersionVector.prototype.getVersionFromVectors = function (version) {
           var localVersion = null;
           for (var i = 0; i < this.versions.length; i++) {
-              if (this.versions[i].peerID === version.peerID) {
+              if (this.versions[i].peerId === version.peerId) {
                   localVersion = this.versions[i];
                   break;
               }
@@ -77,7 +77,7 @@
           return localVersion;
       };
       VersionVector.prototype.getLocalVersion = function () {
-          var localVersion = new Version(this.localVersion.peerID);
+          var localVersion = new Version(this.localVersion.peerId);
           localVersion.counter = this.localVersion.counter;
           return localVersion;
       };
@@ -116,8 +116,8 @@
                   return {};
               };
           }
-          var peerID = options.peerID || randomID();
-          this.peer = new Peer__default["default"](peerID, options.peerJSOptions);
+          var peerId = options.peerId || randomID();
+          this.peer = new Peer__default["default"](peerId, options.peerJSOptions);
           this.onOpen();
       }
       Korona.prototype.send = function (operation) {
@@ -200,7 +200,7 @@
               }
               switch (dataObj.type) {
                   case exports.RequestType.ConnectionRequest:
-                      _this.evaluateRequest(dataObj.peerID);
+                      _this.evaluateRequest(dataObj.peerId);
                       break;
                   case exports.RequestType.AddToNetwork:
                       _this.addToNetwork(dataObj.newPeer);
@@ -228,29 +228,29 @@
               }
           });
       };
-      Korona.prototype.evaluateRequest = function (peerID) {
+      Korona.prototype.evaluateRequest = function (peerId) {
           if (this.hasReachMax()) {
-              this.forwardConnRequest(peerID);
+              this.forwardConnRequest(peerId);
           }
           else {
-              this.acceptConnRequest(peerID);
+              this.acceptConnRequest(peerId);
           }
       };
-      Korona.prototype.forwardConnRequest = function (peerID) {
-          var connected = this.outConns.filter(function (conn) { return conn.peer !== peerID; });
+      Korona.prototype.forwardConnRequest = function (peerId) {
+          var connected = this.outConns.filter(function (conn) { return conn.peer !== peerId; });
           var randomIdx = Math.floor(Math.random() * connected.length);
           connected[randomIdx].send(JSON.stringify({
               type: exports.RequestType.ConnectionRequest,
-              peerID: peerID,
+              peerId: peerId,
           }));
       };
-      Korona.prototype.acceptConnRequest = function (peerID) {
-          var connBack = this.peer.connect(peerID);
+      Korona.prototype.acceptConnRequest = function (peerId) {
+          var connBack = this.peer.connect(peerId);
           this.addToOutConns(connBack);
-          this.addToNetwork(peerID);
+          this.addToNetwork(peerId);
           var initialData = JSON.stringify({
               type: exports.RequestType.SyncResponse,
-              peerID: this.peer.id,
+              peerId: this.peer.id,
               network: this.network,
           });
           if (connBack.open) {
@@ -262,33 +262,33 @@
               });
           }
       };
-      Korona.prototype.addToNetwork = function (peerID) {
-          if (!this.network.find(function (p) { return p === peerID; })) {
-              this.network.push(peerID);
+      Korona.prototype.addToNetwork = function (peerId) {
+          if (!this.network.find(function (p) { return p === peerId; })) {
+              this.network.push(peerId);
               if (this._onPeerJoined) {
-                  this._onPeerJoined(peerID);
+                  this._onPeerJoined(peerId);
               }
               this.send({
                   type: exports.RequestType.AddToNetwork,
-                  newPeer: peerID,
+                  newPeer: peerId,
               });
           }
       };
-      Korona.prototype.removeFromConnections = function (peerID) {
-          this.inConns = this.inConns.filter(function (conn) { return conn.peer !== peerID; });
-          this.outConns = this.outConns.filter(function (conn) { return conn.peer !== peerID; });
-          this.removeFromNetwork(peerID);
+      Korona.prototype.removeFromConnections = function (peerId) {
+          this.inConns = this.inConns.filter(function (conn) { return conn.peer !== peerId; });
+          this.outConns = this.outConns.filter(function (conn) { return conn.peer !== peerId; });
+          this.removeFromNetwork(peerId);
       };
-      Korona.prototype.removeFromNetwork = function (peerID) {
-          var idx = this.network.indexOf(peerID);
+      Korona.prototype.removeFromNetwork = function (peerId) {
+          var idx = this.network.indexOf(peerId);
           if (idx >= 0) {
               this.network.splice(idx, 1);
               if (this._onPeerLeft) {
-                  this._onPeerLeft(peerID);
+                  this._onPeerLeft(peerId);
               }
               this.send({
                   type: exports.RequestType.RemoveFromNetwork,
-                  oldPeer: peerID,
+                  oldPeer: peerId,
               });
           }
       };
@@ -301,8 +301,8 @@
       Korona.prototype.findNewTarget = function () {
           var _this = this;
           var connected = this.outConns.map(function (conn) { return conn.peer; });
-          var unconnected = this.network.filter(function (peerID) { return connected.indexOf(peerID) === -1; });
-          var possibleTargets = unconnected.filter(function (peerID) { return peerID !== _this.peer.id; });
+          var unconnected = this.network.filter(function (peerId) { return connected.indexOf(peerId) === -1; });
+          var possibleTargets = unconnected.filter(function (peerId) { return peerId !== _this.peer.id; });
           if (possibleTargets.length === 0) ;
           else {
               var randomIdx = Math.floor(Math.random() * possibleTargets.length);
@@ -310,16 +310,16 @@
               this.requestConnection(newTarget, this.peer.id);
           }
       };
-      Korona.prototype.requestConnection = function (targetPeerID, peerID) {
-          if (peerID === void 0) { peerID = ""; }
-          if (!peerID) {
-              peerID = this.peer.id;
+      Korona.prototype.requestConnection = function (targetPeerID, peerId) {
+          if (peerId === void 0) { peerId = ""; }
+          if (!peerId) {
+              peerId = this.peer.id;
           }
           var conn = this.peer.connect(targetPeerID);
           this.addToOutConns(conn);
           var dataToSend = JSON.stringify({
               type: exports.RequestType.ConnectionRequest,
-              peerID: peerID,
+              peerId: peerId,
           });
           if (conn.open) {
               conn.send(dataToSend);
@@ -362,13 +362,13 @@
       };
       Korona.prototype.handleSyncResponse = function (operation) {
           var _this = this;
-          var fromPeerID = operation.peerID;
+          var fromPeerID = operation.peerId;
           var network = operation.network || [];
-          network.forEach(function (peerID) { return _this.addToNetwork(peerID); });
+          network.forEach(function (peerId) { return _this.addToNetwork(peerId); });
           // Sync complete
           var completedMessage = JSON.stringify({
               type: exports.RequestType.SyncCompleted,
-              peerID: this.peer.id,
+              peerId: this.peer.id,
           });
           var connection = this.outConns.find(function (conn) { return conn.peer === fromPeerID; });
           if (connection) {
@@ -388,7 +388,7 @@
           }
       };
       Korona.prototype.handleSyncCompleted = function (operation) {
-          var fromPeerID = operation.peerID;
+          var fromPeerID = operation.peerId;
           this.versionVector.increment();
           var connection = this.outConns.find(function (conn) { return conn.peer === fromPeerID; });
           var dataToSend = JSON.stringify(Object.assign(this._createDataForInitialSync(), {

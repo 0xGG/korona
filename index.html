@@ -148,24 +148,24 @@
     async function main() {
       const randomColorGenerator = new RandomColorGenerator();
       const maxPeers = 5;
-      const peerID = randomID();
+      const peerId = randomID();
       const chatMessages = [];
       const chatPanel = document.getElementById("chat-panel");
       const messageInput = document.getElementById("message-input");
       const sendButton = document.getElementById("send-button");
 
-      const appendMessageElement = (messageID, peerID, message)=> {
+      const appendMessageElement = (messageID, peerId, message)=> {
         if (chatMessages.find(m => m.id === messageID)) { // Message already exists
           return;
         }
 
-        chatMessages.push({id: messageID, peerID: peerID, message: message});
+        chatMessages.push({id: messageID, peerId: peerId, message: message});
         const messageContainer = document.createElement("div");
         messageContainer.classList.add("message-container")
         const sender = document.createElement("code");
         sender.classList.add("sender")
-        sender.innerText = peerID
-        sender.style.color = randomColorGenerator.generateColor(peerID);
+        sender.innerText = peerId
+        sender.style.color = randomColorGenerator.generateColor(peerId);
         const messageElement = document.createElement("p");
         messageElement.classList.add("message");
         messageElement.innerText = message;
@@ -178,7 +178,7 @@
       }
 
       const peer = new Korona.Korona({
-        peerID: peerID,
+        peerId: peerId,
         peerJSOptions: {
           host: "crossnote.app",
           path: "/peer",
@@ -186,10 +186,10 @@
           // config: { iceServers: [{ url: "stun:stun.l.google.com:19302" }] }
         },
         onOpen: () => {
-          document.getElementById("peer-id").innerText = peerID;
-          document.getElementById("peer-id").style.color = randomColorGenerator.generateColor(peerID);
+          document.getElementById("peer-id").innerText = peerId;
+          document.getElementById("peer-id").style.color = randomColorGenerator.generateColor(peerId);
           document.getElementById("shareable-link").innerText =
-            location.protocol + "//" + location.host + location.pathname + "?peerID=" + peerID;
+            location.protocol + "//" + location.host + location.pathname + "?peerId=" + peerId;
           
           messageInput.placeholder = "Enter your message here"
           messageInput.disabled = false;
@@ -208,12 +208,12 @@
               peer.send({
                 type: "SendMessage",
                 id: messageID,
-                peerID: peerID,
+                peerId: peerId,
                 message: value
               });
 
               // create dom element
-              appendMessageElement(messageID, peerID, value);
+              appendMessageElement(messageID, peerId, value);
           }
 
           messageInput.addEventListener("keydown", (event)=> {
@@ -226,28 +226,28 @@
           })
 
 
-          const targetPeerIDMatch = location.search.match(/peerID\=(.+)$/);
+          const targetPeerIDMatch = location.search.match(/peerId\=(.+)$/);
           if (targetPeerIDMatch) {
             const targetPeerID = targetPeerIDMatch[1];
             peer.requestConnection(targetPeerID);
           }
         },
-        onPeerJoined: peerID => {
-          console.log("peer joined: ", peerID);
+        onPeerJoined: peerId => {
+          console.log("peer joined: ", peerId);
           document.getElementById("peers-number").innerText = peer.network.length;
         },
-        onPeerLeft: peerID => {
-          console.log("peer left: ", peerID);
+        onPeerLeft: peerId => {
+          console.log("peer left: ", peerId);
           document.getElementById("peers-number").innerText = peer.network.length;
         },
         onData: (data)=> {
           console.log("received data: ", data)
           if (data.type === "SendMessage") {
-            appendMessageElement(data.id, data.peerID, data.message);
+            appendMessageElement(data.id, data.peerId, data.message);
           } else if (data.type === "ChatMessages") {
             const chatMessages = data.messages;
             chatMessages.forEach((chatMessage)=> {
-              appendMessageElement(chatMessage.id, chatMessage.peerID, chatMessage.message);
+              appendMessageElement(chatMessage.id, chatMessage.peerId, chatMessage.message);
             })
           }
         },

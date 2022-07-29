@@ -3,8 +3,8 @@ import Version from "./version";
 export default class VersionVector {
   public versions: Version[];
   public localVersion: Version;
-  constructor(peerID: string) {
-    this.localVersion = new Version(peerID);
+  constructor(peerId: string) {
+    this.localVersion = new Version(peerId);
     this.versions = [this.localVersion];
   }
 
@@ -17,7 +17,7 @@ export default class VersionVector {
     let existingVersion = this.getVersionFromVectors(incomingVersion);
 
     if (!existingVersion) {
-      const newVersion = new Version(incomingVersion.peerID);
+      const newVersion = new Version(incomingVersion.peerId);
       newVersion.update(incomingVersion);
       this.versions.push(newVersion);
     } else {
@@ -42,7 +42,7 @@ export default class VersionVector {
   private getVersionFromVectors(version: Version) {
     let localVersion = null;
     for (let i = 0; i < this.versions.length; i++) {
-      if (this.versions[i].peerID === version.peerID) {
+      if (this.versions[i].peerId === version.peerId) {
         localVersion = this.versions[i];
         break;
       }
@@ -51,7 +51,7 @@ export default class VersionVector {
   }
 
   public getLocalVersion(): Version {
-    const localVersion = new Version(this.localVersion.peerID);
+    const localVersion = new Version(this.localVersion.peerId);
     localVersion.counter = this.localVersion.counter;
     return localVersion;
   }
