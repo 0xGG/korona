@@ -1,10 +1,12 @@
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('peerjs')) :
   typeof define === 'function' && define.amd ? define(['exports', 'peerjs'], factory) :
-  (global = global || self, factory(global.Korona = {}, global.Peer));
-}(this, (function (exports, Peer) { 'use strict';
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.Korona = {}, global.Peer));
+})(this, (function (exports, Peer) { 'use strict';
 
-  Peer = Peer && Peer.hasOwnProperty('default') ? Peer['default'] : Peer;
+  function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+
+  var Peer__default = /*#__PURE__*/_interopDefaultLegacy(Peer);
 
   var Version = /** @class */ (function () {
       function Version(peerID, counter) {
@@ -85,6 +87,7 @@
   function randomID() {
       return Math.random().toString(36).substr(2, 9);
   }
+  exports.RequestType = void 0;
   (function (RequestType) {
       RequestType["ConnectionRequest"] = "cr";
       RequestType["RemoveFromNetwork"] = "rfn";
@@ -114,7 +117,7 @@
               };
           }
           var peerID = options.peerID || randomID();
-          this.peer = new Peer(peerID, options.peerJSOptions);
+          this.peer = new Peer__default["default"](peerID, options.peerJSOptions);
           this.onOpen();
       }
       Korona.prototype.send = function (operation) {
@@ -418,4 +421,4 @@
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
-})));
+}));
