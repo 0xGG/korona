@@ -1,3 +1,4 @@
+// @ts-ignore
 import Peer, { PeerJSOption, DataConnection } from "peerjs";
 import VersionVector from "./versionVector";
 import Version from "./version";
@@ -14,7 +15,7 @@ export interface KoronaOptions {
   roomId?: string;
   peerJSOptions: PeerJSOption;
   maxPeers?: number;
-  onOpen?: () => void;
+  onOpen?: (id: string) => void;
   // onConnection?: (connection: Peer.DataConnection) => void;
   onData?: (data: any, connection: DataConnection) => void;
   onDisconnected?: () => void;
@@ -90,36 +91,36 @@ export class Korona {
   }
 
   private tryToBecomeTheRoomHost() {
-    console.log("Trying to become the room host");
     if (!this._options?.roomId) {
       return;
     }
 
     const oldPeer = this.peer;
-    this._onOpen = () => {
+    this._onOpen = (pid) => {
       if (oldPeer) {
+        this.network = this.network.filter((peerId) => peerId !== oldPeer.id);
         oldPeer.destroy();
       }
       if (this._options?.onOpen) {
-        this._options.onOpen();
+        this._options.onOpen(pid);
       }
     };
     this.peer = new Peer(this._options.roomId, this._options.peerJSOptions);
     this.onOpen();
 
     this.peer.on("error", (err: any) => {
+      // Room host already exists
       if (err.type === "unavailable-id") {
-        console.log("Room already exists  - joining");
         if (!oldPeer) {
           // Initialize peer
           const peerId = this._options?.peerId || randomID();
           this.peer = new Peer(peerId, this._options?.peerJSOptions);
-          this._onOpen = () => {
+          this._onOpen = (pid) => {
             if (this._options?.roomId) {
               this.requestConnection(this._options?.roomId);
             }
             if (this._options?.onOpen) {
-              this._options.onOpen();
+              this._options.onOpen(pid);
             }
           };
           this.onOpen();
@@ -164,14 +165,13 @@ export class Korona {
         fromPeerID !== conn.peer &&
         (!from || (from.peer !== conn.peer && from.label !== conn.label))
       ) {
-        console.log("send to: ", conn, "data: ", operationJSON);
         conn.send(operationJSON);
       }
     });
   }
 
   onOpen() {
-    this.peer?.on("open", (id) => {
+    this.peer?.on("open", (id: string) => {
       if (this._onOpen) {
         this._onOpen(id);
       }
@@ -179,7 +179,15 @@ export class Korona {
       this.versionVector = new VersionVector(id);
       this.outConns = [];
       this.inConns = [];
-      this.network = [];
+      /*
+      if (this.network.length) {
+        this.network.forEach((peerId) => {
+          if (peerId !== id) {
+            this.requestConnection(peerId);
+          }
+        });
+      }*/
+      // this.network = [];
 
       this.onPeerConnection();
       this.onError();
@@ -190,24 +198,24 @@ export class Korona {
   }
 
   onPeerConnection() {
-    this.peer?.on("connection", (connection) => {
+    this.peer?.on("connection", (connection: DataConnection) => {
       connection.on("open", () => {
         this.onConnection(connection);
         this.onData(connection);
         this.onConnClose(connection);
         this.onConnError(connection);
+        this.onConnIcestateChanged(connection);
       });
     });
   }
   onConnection(connection: DataConnection) {
     if (connection.peer !== this.peer?.id) {
-      console.log("* connection established: ", connection.peer);
       this.addToInConns(connection);
+      this.addToNetwork(connection.peer);
     }
   }
   onError() {
-    this.peer?.on("error", (err) => {
-      console.log("* error: ", err);
+    this.peer?.on("error", (err: any) => {
       const pid = String(err).replace("Error: Could not connect to peer ", "");
       this.removeFromConnections(pid);
       if (!this.peer?.disconnected) {
@@ -254,18 +262,31 @@ export class Korona {
       }
     });
   }
+  _closeConnection(connection: DataConnection) {
+    this.removeFromConnections(connection.peer);
+    if (!this.hasReachMax()) {
+      this.findNewTarget();
+    }
+  }
   onConnClose(connection: DataConnection) {
     connection.on("close", () => {
-      console.log("* connection closed: ", connection.peer);
-      this.removeFromConnections(connection.peer);
-      if (!this.hasReachMax()) {
-        this.findNewTarget();
-      }
+      this._closeConnection(connection);
     });
   }
   onConnError(connection: DataConnection) {
-    connection.on("error", (error) => {
-      console.error(`* connection error: ${error}`);
+    connection.on("error", (error: any) => {
+      console.error(`* connection error: `, connection, error);
+    });
+  }
+  onConnIcestateChanged(connection: DataConnection) {
+    connection.on("iceStateChanged", (state) => {
+      if (
+        state === "closed" ||
+        state === "failed" ||
+        state === "disconnected"
+      ) {
+        this._closeConnection(connection);
+      }
     });
   }
 
@@ -328,13 +349,11 @@ export class Korona {
   removeFromConnections(peerId: string) {
     this.inConns = this.inConns.filter((conn) => conn.peer !== peerId);
     this.outConns = this.outConns.filter((conn) => conn.peer !== peerId);
-    console.log("removeFromNetwork 1", peerId);
     this.removeFromNetwork(peerId);
   }
 
   removeFromNetwork(peerId: string) {
     const idx = this.network.indexOf(peerId);
-    console.log("removeFromNetwork 2: ", [...this.network], peerId, idx);
     if (idx >= 0) {
       this.network.splice(idx, 1);
       if (this._onPeerLeft) {
@@ -351,7 +370,6 @@ export class Korona {
         this.peer?.id !== this._options?.roomId &&
         peerId === this._options?.roomId
       ) {
-        console.log(this.network.length);
         this.tryToBecomeTheRoomHost();
       }
     }
@@ -381,13 +399,13 @@ export class Korona {
     } else {
       const randomIdx = Math.floor(Math.random() * possibleTargets.length);
       const newTarget = possibleTargets[randomIdx];
-      this.requestConnection(newTarget, this.peer?.id);
+      this.requestConnection(newTarget, this.peer?.id || undefined);
     }
   }
 
   requestConnection(targetPeerID: string, peerId?: string) {
     if (!peerId) {
-      peerId = this.peer?.id;
+      peerId = this.peer?.id || undefined;
     }
 
     const conn = this.peer?.connect(targetPeerID);

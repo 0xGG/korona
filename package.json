@@ -6,8 +6,10 @@
   "author": "Yiyi Wang <shd101wyy@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@rollup/plugin-json": "^4.1.0",
     "@rollup/plugin-typescript": "^3.0.0",
     "@types/node": "^13.7.0",
+    "@types/peerjs": "^1.1.0",
     "http-server": "^14.1.1",
     "husky": "^8.0.1",
     "rollup": "^2.77.2",
