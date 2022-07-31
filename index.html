@@ -204,7 +204,7 @@
           // path: "/peer",
           // secure: true,
         },
-        maxPeers: 2,
+        maxPeers: maxPeers,
         onOpen: () => {
           document.getElementById("peer-id").innerText = peerId;
           document.getElementById("peer-id").style.color = randomColorGenerator.generateColor(peerId);

@@ -42,6 +42,7 @@ export class Korona {
   private connections: DataConnection[] = [];
   private outConns: DataConnectionIdentifier[] = [];
   private inConns: DataConnectionIdentifier[] = [];
+  private forwardedConnectionPeers = new Set<string>();
   private maxPeers: number;
   private versionVector?: VersionVector;
   private _onOpen?: (peerId: string) => Promise<void>;
@@ -68,6 +69,7 @@ export class Korona {
     this.outConns = [];
     this.inConns = [];
     this.network = [];
+    this.forwardedConnectionPeers = new Set<string>();
     this.maxPeers = options.maxPeers || 5;
     if (this.maxPeers < 2) {
       this.maxPeers = 2;
@@ -202,14 +204,17 @@ export class Korona {
 
   private onOpen() {
     this.peer?.on("open", async (id: string) => {
-      if (this._onOpen) {
-        await this._onOpen(id);
-      }
-
       this.versionVector = new VersionVector(id);
+      // Code below gives bug
+      this.connections.forEach((connection) => {
+        console.log("onOpen close connection", connection.peer);
+        connection.close();
+      });
+
       this.connections = [];
       this.outConns = [];
       this.inConns = [];
+      this.forwardedConnectionPeers = new Set<string>();
       /*
       if (this.network.length) {
         this.network.forEach((peerId) => {
@@ -223,24 +228,31 @@ export class Korona {
       this.onPeerConnection();
       this.onError();
       this.onDisconnected();
-      this.addToNetwork(id);
+      await this.addToNetwork(id);
+
+      if (this._onOpen) {
+        await this._onOpen(id);
+      }
     });
   }
 
   private connectToPeer(peerId: string): Promise<DataConnection> {
     return new Promise((resolve, reject) => {
       console.log("* connectToPeer", peerId);
+      if (this.peer?.id === peerId) {
+        reject(new Error("Cannot connect to self"));
+      }
       let connection = this.connections.find((conn) => conn.peer === peerId);
       console.log("** connection", !!connection);
       if (!connection) {
         connection = this.peer?.connect(peerId);
         console.log("*** create connection: ", !!connection);
         if (connection) {
-          const helper = () => {
+          const helper = async () => {
             console.log("**** helper: ", !!connection);
             if (connection) {
               this.addToOutConns(connection);
-              this.addToNetwork(connection.peer);
+              await this.addToNetwork(connection.peer);
               this.registerConnectionEvents(connection);
               return resolve(connection);
             }
@@ -254,19 +266,21 @@ export class Korona {
           return reject(`connectToPeer failed`);
         }
       } else {
-        this.addToOutConns(connection);
-        this.addToNetwork(peerId);
-        return resolve(connection);
+        (async () => {
+          this.addToOutConns(connection);
+          await this.addToNetwork(peerId);
+          return resolve(connection);
+        })();
       }
     });
   }
 
   private onPeerConnection() {
     this.peer?.on("connection", (connection: DataConnection) => {
-      connection.on("open", () => {
+      connection.on("open", async () => {
         console.log("* peer connection opened", connection.peer, this.peer?.id);
         this.addToInConns(connection);
-        this.addToNetwork(connection.peer);
+        await this.addToNetwork(connection.peer);
         this.registerConnectionEvents(connection);
       });
     });
@@ -313,7 +327,7 @@ export class Korona {
 
       const fromPeerId = dataObj["_v"]?.p;
       if (fromPeerId) {
-        this.addToNetwork(fromPeerId);
+        await this.addToNetwork(fromPeerId);
       }
 
       switch (dataObj.type) {
@@ -321,7 +335,7 @@ export class Korona {
           await this.evaluateConnectionRequest(dataObj.peerId);
           break;
         case RequestType.AddToNetwork:
-          this.addToNetwork(dataObj.peerId);
+          await this.addToNetwork(dataObj.peerId);
           break;
         case RequestType.RemoveFromNetwork:
           await this.removeFromNetwork(dataObj.peerId);
@@ -383,38 +397,47 @@ export class Korona {
   private async forwardConnRequest(peerId: string) {
     console.log("* forwardConnRequest: ", peerId);
     const connected = this.getOutConnections().filter(
-      (conn) => conn.peer !== peerId
+      (conn) =>
+        conn.peer !== peerId && !this.forwardedConnectionPeers.has(conn.peer)
     );
     if (connected.length > 0) {
-      console.log("** can forward");
       const randomIdx = Math.floor(Math.random() * connected.length);
+      console.log(
+        "** can forward: ",
+        connected[randomIdx].peer,
+        connected.length
+      );
       connected[randomIdx].send(
         JSON.stringify({
           type: RequestType.ConnectionRequest,
           peerId: peerId,
         })
       );
-      this.addToNetwork(peerId);
+      await this.addToNetwork(peerId);
+      this.forwardedConnectionPeers.add(connected[randomIdx].peer);
     } else {
       console.log("** can't forward");
-      await this.acceptConnRequest(peerId);
+      // NOTE: The code below causes a bug:
+      // await this.acceptConnRequest(peerId);
     }
   }
 
   private async acceptConnRequest(peerId: string) {
     console.log("* acceptConnRequest: ", peerId);
-    const connection = await this.connectToPeer(peerId);
-    if (connection) {
-      const initialData: any = JSON.stringify({
-        type: RequestType.SyncResponse,
-        peerId: this.peer?.id,
-        network: this.network,
-      });
-      connection.send(initialData);
+    if (peerId !== this.peer?.id) {
+      const connection = await this.connectToPeer(peerId);
+      if (connection) {
+        const initialData: any = JSON.stringify({
+          type: RequestType.SyncResponse,
+          peerId: this.peer?.id,
+          network: this.network,
+        });
+        connection.send(initialData);
+      }
     }
   }
 
-  private addToNetwork(peerId: string) {
+  private async addToNetwork(peerId: string) {
     if (!this.network.find((p) => p === peerId)) {
       this.network.push(peerId);
 
@@ -426,6 +449,11 @@ export class Korona {
         type: RequestType.AddToNetwork,
         peerId: peerId,
       });
+
+      // If haven't reach max, connect to that peer
+      if (!this.hasReachMax() && peerId !== this.peer?.id) {
+        await this.findNewTarget();
+      }
     }
   }
 
@@ -434,6 +462,7 @@ export class Korona {
     this.connections = this.connections.filter((conn) => conn.peer !== peerId);
     this.inConns = this.inConns.filter((conn) => conn.peer !== peerId);
     this.outConns = this.outConns.filter((conn) => conn.peer !== peerId);
+    this.forwardedConnectionPeers.delete(peerId);
     await this.removeFromNetwork(peerId);
   }
 
@@ -499,6 +528,14 @@ export class Korona {
     if (!peerId) {
       throw new Error(`requestConnection: peerId is required`);
     }
+    if (peerId === targetPeerId) {
+      throw new Error(`requestConnection: peerId cannot be the same`);
+    }
+    if (this.connections.find((conn) => conn.peer === targetPeerId)) {
+      // NOTE: already connected
+      return;
+    }
+
     const timestamp = Date.now();
     console.log("* requestConnection: ", targetPeerId, peerId, timestamp);
     const connection = await this.connectToPeer(targetPeerId);
@@ -572,35 +609,41 @@ export class Korona {
 
   private async handleSyncResponse(operation: any) {
     const fromPeerId = operation.peerId;
-    const network: string[] = operation.network || [];
-    network.forEach((peerId) => this.addToNetwork(peerId));
+    if (fromPeerId !== this.peer?.id) {
+      const network: string[] = operation.network || [];
+      await Promise.all(network.map((peerId) => this.addToNetwork(peerId)));
 
-    // Sync complete
-    console.log("* handleSyncResponse: ", fromPeerId, network);
-    const connection = await this.connectToPeer(fromPeerId);
-    const completedMessage = JSON.stringify({
-      type: RequestType.SyncCompleted,
-      peerId: this.peer?.id,
-    });
-    connection.send(completedMessage);
+      // Sync complete
+      console.log("* handleSyncResponse: ", fromPeerId, network);
+      const connection = await this.connectToPeer(fromPeerId);
+      const completedMessage = JSON.stringify({
+        type: RequestType.SyncCompleted,
+        peerId: this.peer?.id,
+      });
+      connection.send(completedMessage);
+    }
   }
 
   private async handleSyncCompleted(operation: any) {
     const fromPeerId = operation.peerId;
-    this.versionVector?.increment();
-    console.log("handleSyncCompleted: ", fromPeerId);
-    let connection = await this.connectToPeer(fromPeerId);
-    const dataToSend = JSON.stringify(
-      Object.assign(
-        this._createDataForInitialSync ? this._createDataForInitialSync() : {},
-        {
-          _v: {
-            p: this.peer?.id,
-            c: this.versionVector?.localVersion.counter,
-          },
-        }
-      )
-    );
-    connection.send(dataToSend);
+    if (fromPeerId !== this.peer?.id) {
+      this.versionVector?.increment();
+      console.log("handleSyncCompleted: ", fromPeerId);
+      let connection = await this.connectToPeer(fromPeerId);
+      const dataToSend = JSON.stringify(
+        Object.assign(
+          this._createDataForInitialSync
+            ? this._createDataForInitialSync()
+            : {},
+          {
+            _v: {
+              p: this.peer?.id,
+              c: this.versionVector?.localVersion.counter,
+            },
+          }
+        )
+      );
+      connection.send(dataToSend);
+    }
   }
 }

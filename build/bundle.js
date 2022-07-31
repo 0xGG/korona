@@ -181,11 +181,13 @@
             this.connections = [];
             this.outConns = [];
             this.inConns = [];
+            this.forwardedConnectionPeers = new Set();
             this._options = options;
             this.connections = [];
             this.outConns = [];
             this.inConns = [];
             this.network = [];
+            this.forwardedConnectionPeers = new Set();
             this.maxPeers = options.maxPeers || 5;
             if (this.maxPeers < 2) {
                 this.maxPeers = 2;
@@ -346,16 +348,16 @@
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
-                            if (!this._onOpen) return [3 /*break*/, 2];
-                            return [4 /*yield*/, this._onOpen(id)];
-                        case 1:
-                            _a.sent();
-                            _a.label = 2;
-                        case 2:
                             this.versionVector = new VersionVector(id);
+                            // Code below gives bug
+                            this.connections.forEach(function (connection) {
+                                console.log("onOpen close connection", connection.peer);
+                                connection.close();
+                            });
                             this.connections = [];
                             this.outConns = [];
                             this.inConns = [];
+                            this.forwardedConnectionPeers = new Set();
                             /*
                             if (this.network.length) {
                               this.network.forEach((peerId) => {
@@ -368,8 +370,15 @@
                             this.onPeerConnection();
                             this.onError();
                             this.onDisconnected();
-                            this.addToNetwork(id);
-                            return [2 /*return*/];
+                            return [4 /*yield*/, this.addToNetwork(id)];
+                        case 1:
+                            _a.sent();
+                            if (!this._onOpen) return [3 /*break*/, 3];
+                            return [4 /*yield*/, this._onOpen(id)];
+                        case 2:
+                            _a.sent();
+                            _a.label = 3;
+                        case 3: return [2 /*return*/];
                     }
                 });
             }); });
@@ -377,23 +386,33 @@
         Korona.prototype.connectToPeer = function (peerId) {
             var _this = this;
             return new Promise(function (resolve, reject) {
-                var _a;
+                var _a, _b;
                 console.log("* connectToPeer", peerId);
+                if (((_a = _this.peer) === null || _a === void 0 ? void 0 : _a.id) === peerId) {
+                    reject(new Error("Cannot connect to self"));
+                }
                 var connection = _this.connections.find(function (conn) { return conn.peer === peerId; });
                 console.log("** connection", !!connection);
                 if (!connection) {
-                    connection = (_a = _this.peer) === null || _a === void 0 ? void 0 : _a.connect(peerId);
+                    connection = (_b = _this.peer) === null || _b === void 0 ? void 0 : _b.connect(peerId);
                     console.log("*** create connection: ", !!connection);
                     if (connection) {
-                        var helper = function () {
-                            console.log("**** helper: ", !!connection);
-                            if (connection) {
-                                _this.addToOutConns(connection);
-                                _this.addToNetwork(connection.peer);
-                                _this.registerConnectionEvents(connection);
-                                return resolve(connection);
-                            }
-                        };
+                        var helper = function () { return __awaiter(_this, void 0, void 0, function () {
+                            return __generator(this, function (_a) {
+                                switch (_a.label) {
+                                    case 0:
+                                        console.log("**** helper: ", !!connection);
+                                        if (!connection) return [3 /*break*/, 2];
+                                        this.addToOutConns(connection);
+                                        return [4 /*yield*/, this.addToNetwork(connection.peer)];
+                                    case 1:
+                                        _a.sent();
+                                        this.registerConnectionEvents(connection);
+                                        return [2 /*return*/, resolve(connection)];
+                                    case 2: return [2 /*return*/];
+                                }
+                            });
+                        }); };
                         if (connection.open) {
                             helper();
                         }
@@ -406,9 +425,18 @@
                     }
                 }
                 else {
-                    _this.addToOutConns(connection);
-                    _this.addToNetwork(peerId);
-                    return resolve(connection);
+                    (function () { return __awaiter(_this, void 0, void 0, function () {
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    this.addToOutConns(connection);
+                                    return [4 /*yield*/, this.addToNetwork(peerId)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/, resolve(connection)];
+                            }
+                        });
+                    }); })();
                 }
             });
         };
@@ -416,13 +444,21 @@
             var _this = this;
             var _a;
             (_a = this.peer) === null || _a === void 0 ? void 0 : _a.on("connection", function (connection) {
-                connection.on("open", function () {
+                connection.on("open", function () { return __awaiter(_this, void 0, void 0, function () {
                     var _a;
-                    console.log("* peer connection opened", connection.peer, (_a = _this.peer) === null || _a === void 0 ? void 0 : _a.id);
-                    _this.addToInConns(connection);
-                    _this.addToNetwork(connection.peer);
-                    _this.registerConnectionEvents(connection);
-                });
+                    return __generator(this, function (_b) {
+                        switch (_b.label) {
+                            case 0:
+                                console.log("* peer connection opened", connection.peer, (_a = this.peer) === null || _a === void 0 ? void 0 : _a.id);
+                                this.addToInConns(connection);
+                                return [4 /*yield*/, this.addToNetwork(connection.peer)];
+                            case 1:
+                                _b.sent();
+                                this.registerConnectionEvents(connection);
+                                return [2 /*return*/];
+                        }
+                    });
+                }); });
             });
         };
         Korona.prototype.registerConnectionEvents = function (connection) {
@@ -482,42 +518,46 @@
                             }
                             console.log("* data", connection.peer, dataObj);
                             fromPeerId = (_b = dataObj["_v"]) === null || _b === void 0 ? void 0 : _b.p;
-                            if (fromPeerId) {
-                                this.addToNetwork(fromPeerId);
-                            }
+                            if (!fromPeerId) return [3 /*break*/, 2];
+                            return [4 /*yield*/, this.addToNetwork(fromPeerId)];
+                        case 1:
+                            _c.sent();
+                            _c.label = 2;
+                        case 2:
                             _a = dataObj.type;
                             switch (_a) {
-                                case exports.RequestType.ConnectionRequest: return [3 /*break*/, 1];
-                                case exports.RequestType.AddToNetwork: return [3 /*break*/, 3];
-                                case exports.RequestType.RemoveFromNetwork: return [3 /*break*/, 4];
-                                case exports.RequestType.SyncResponse: return [3 /*break*/, 6];
-                                case exports.RequestType.SyncCompleted: return [3 /*break*/, 8];
+                                case exports.RequestType.ConnectionRequest: return [3 /*break*/, 3];
+                                case exports.RequestType.AddToNetwork: return [3 /*break*/, 5];
+                                case exports.RequestType.RemoveFromNetwork: return [3 /*break*/, 7];
+                                case exports.RequestType.SyncResponse: return [3 /*break*/, 9];
+                                case exports.RequestType.SyncCompleted: return [3 /*break*/, 11];
                             }
-                            return [3 /*break*/, 10];
-                        case 1: return [4 /*yield*/, this.evaluateConnectionRequest(dataObj.peerId)];
-                        case 2:
+                            return [3 /*break*/, 13];
+                        case 3: return [4 /*yield*/, this.evaluateConnectionRequest(dataObj.peerId)];
+                        case 4:
                             _c.sent();
-                            return [3 /*break*/, 12];
-                        case 3:
-                            this.addToNetwork(dataObj.peerId);
-                            return [3 /*break*/, 12];
-                        case 4: return [4 /*yield*/, this.removeFromNetwork(dataObj.peerId)];
-                        case 5:
+                            return [3 /*break*/, 15];
+                        case 5: return [4 /*yield*/, this.addToNetwork(dataObj.peerId)];
+                        case 6:
                             _c.sent();
-                            return [3 /*break*/, 12];
-                        case 6: return [4 /*yield*/, this.handleSyncResponse(dataObj)];
-                        case 7:
+                            return [3 /*break*/, 15];
+                        case 7: return [4 /*yield*/, this.removeFromNetwork(dataObj.peerId)];
+                        case 8:
                             _c.sent();
-                            return [3 /*break*/, 12];
-                        case 8: return [4 /*yield*/, this.handleSyncCompleted(dataObj)];
-                        case 9:
+                            return [3 /*break*/, 15];
+                        case 9: return [4 /*yield*/, this.handleSyncResponse(dataObj)];
+                        case 10:
                             _c.sent();
-                            return [3 /*break*/, 12];
-                        case 10: return [4 /*yield*/, this.handleRemoteOperation(dataObj, connection)];
-                        case 11:
+                            return [3 /*break*/, 15];
+                        case 11: return [4 /*yield*/, this.handleSyncCompleted(dataObj)];
+                        case 12:
                             _c.sent();
-                            _c.label = 12;
-                        case 12: return [2 /*return*/];
+                            return [3 /*break*/, 15];
+                        case 13: return [4 /*yield*/, this.handleRemoteOperation(dataObj, connection)];
+                        case 14:
+                            _c.sent();
+                            _c.label = 15;
+                        case 15: return [2 /*return*/];
                     }
                 });
             }); });
@@ -603,25 +643,28 @@
         Korona.prototype.forwardConnRequest = function (peerId) {
             return __awaiter(this, void 0, void 0, function () {
                 var connected, randomIdx;
+                var _this = this;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
                             console.log("* forwardConnRequest: ", peerId);
-                            connected = this.getOutConnections().filter(function (conn) { return conn.peer !== peerId; });
-                            if (!(connected.length > 0)) return [3 /*break*/, 1];
-                            console.log("** can forward");
+                            connected = this.getOutConnections().filter(function (conn) {
+                                return conn.peer !== peerId && !_this.forwardedConnectionPeers.has(conn.peer);
+                            });
+                            if (!(connected.length > 0)) return [3 /*break*/, 2];
                             randomIdx = Math.floor(Math.random() * connected.length);
+                            console.log("** can forward: ", connected[randomIdx].peer, connected.length);
                             connected[randomIdx].send(JSON.stringify({
                                 type: exports.RequestType.ConnectionRequest,
                                 peerId: peerId,
                             }));
-                            this.addToNetwork(peerId);
-                            return [3 /*break*/, 3];
+                            return [4 /*yield*/, this.addToNetwork(peerId)];
                         case 1:
-                            console.log("** can't forward");
-                            return [4 /*yield*/, this.acceptConnRequest(peerId)];
-                        case 2:
                             _a.sent();
+                            this.forwardedConnectionPeers.add(connected[randomIdx].peer);
+                            return [3 /*break*/, 3];
+                        case 2:
+                            console.log("** can't forward");
                             _a.label = 3;
                         case 3: return [2 /*return*/];
                     }
@@ -629,40 +672,55 @@
             });
         };
         Korona.prototype.acceptConnRequest = function (peerId) {
-            var _a;
+            var _a, _b;
             return __awaiter(this, void 0, void 0, function () {
                 var connection, initialData;
-                return __generator(this, function (_b) {
-                    switch (_b.label) {
+                return __generator(this, function (_c) {
+                    switch (_c.label) {
                         case 0:
                             console.log("* acceptConnRequest: ", peerId);
+                            if (!(peerId !== ((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id))) return [3 /*break*/, 2];
                             return [4 /*yield*/, this.connectToPeer(peerId)];
                         case 1:
-                            connection = _b.sent();
+                            connection = _c.sent();
                             if (connection) {
                                 initialData = JSON.stringify({
                                     type: exports.RequestType.SyncResponse,
-                                    peerId: (_a = this.peer) === null || _a === void 0 ? void 0 : _a.id,
+                                    peerId: (_b = this.peer) === null || _b === void 0 ? void 0 : _b.id,
                                     network: this.network,
                                 });
                                 connection.send(initialData);
                             }
-                            return [2 /*return*/];
+                            _c.label = 2;
+                        case 2: return [2 /*return*/];
                     }
                 });
             });
         };
         Korona.prototype.addToNetwork = function (peerId) {
-            if (!this.network.find(function (p) { return p === peerId; })) {
-                this.network.push(peerId);
-                if (this._onPeerJoined) {
-                    this._onPeerJoined(peerId);
-                }
-                this.send({
-                    type: exports.RequestType.AddToNetwork,
-                    peerId: peerId,
+            var _a;
+            return __awaiter(this, void 0, void 0, function () {
+                return __generator(this, function (_b) {
+                    switch (_b.label) {
+                        case 0:
+                            if (!!this.network.find(function (p) { return p === peerId; })) return [3 /*break*/, 2];
+                            this.network.push(peerId);
+                            if (this._onPeerJoined) {
+                                this._onPeerJoined(peerId);
+                            }
+                            this.send({
+                                type: exports.RequestType.AddToNetwork,
+                                peerId: peerId,
+                            });
+                            if (!(!this.hasReachMax() && peerId !== ((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id))) return [3 /*break*/, 2];
+                            return [4 /*yield*/, this.findNewTarget()];
+                        case 1:
+                            _b.sent();
+                            _b.label = 2;
+                        case 2: return [2 /*return*/];
+                    }
                 });
-            }
+            });
         };
         Korona.prototype.removeFromConnections = function (peerId) {
             return __awaiter(this, void 0, void 0, function () {
@@ -673,6 +731,7 @@
                             this.connections = this.connections.filter(function (conn) { return conn.peer !== peerId; });
                             this.inConns = this.inConns.filter(function (conn) { return conn.peer !== peerId; });
                             this.outConns = this.outConns.filter(function (conn) { return conn.peer !== peerId; });
+                            this.forwardedConnectionPeers.delete(peerId);
                             return [4 /*yield*/, this.removeFromNetwork(peerId)];
                         case 1:
                             _a.sent();
@@ -756,6 +815,13 @@
                             if (!peerId) {
                                 throw new Error("requestConnection: peerId is required");
                             }
+                            if (peerId === targetPeerId) {
+                                throw new Error("requestConnection: peerId cannot be the same");
+                            }
+                            if (this.connections.find(function (conn) { return conn.peer === targetPeerId; })) {
+                                // NOTE: already connected
+                                return [2 /*return*/];
+                            }
                             timestamp = Date.now();
                             console.log("* requestConnection: ", targetPeerId, peerId, timestamp);
                             return [4 /*yield*/, this.connectToPeer(targetPeerId)];
@@ -825,52 +891,60 @@
             });
         };
         Korona.prototype.handleSyncResponse = function (operation) {
-            var _a;
+            var _a, _b;
             return __awaiter(this, void 0, void 0, function () {
                 var fromPeerId, network, connection, completedMessage;
                 var _this = this;
-                return __generator(this, function (_b) {
-                    switch (_b.label) {
+                return __generator(this, function (_c) {
+                    switch (_c.label) {
                         case 0:
                             fromPeerId = operation.peerId;
+                            if (!(fromPeerId !== ((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id))) return [3 /*break*/, 3];
                             network = operation.network || [];
-                            network.forEach(function (peerId) { return _this.addToNetwork(peerId); });
+                            return [4 /*yield*/, Promise.all(network.map(function (peerId) { return _this.addToNetwork(peerId); }))];
+                        case 1:
+                            _c.sent();
                             // Sync complete
                             console.log("* handleSyncResponse: ", fromPeerId, network);
                             return [4 /*yield*/, this.connectToPeer(fromPeerId)];
-                        case 1:
-                            connection = _b.sent();
+                        case 2:
+                            connection = _c.sent();
                             completedMessage = JSON.stringify({
                                 type: exports.RequestType.SyncCompleted,
-                                peerId: (_a = this.peer) === null || _a === void 0 ? void 0 : _a.id,
+                                peerId: (_b = this.peer) === null || _b === void 0 ? void 0 : _b.id,
                             });
                             connection.send(completedMessage);
-                            return [2 /*return*/];
+                            _c.label = 3;
+                        case 3: return [2 /*return*/];
                     }
                 });
             });
         };
         Korona.prototype.handleSyncCompleted = function (operation) {
-            var _a, _b, _c;
+            var _a, _b, _c, _d;
             return __awaiter(this, void 0, void 0, function () {
                 var fromPeerId, connection, dataToSend;
-                return __generator(this, function (_d) {
-                    switch (_d.label) {
+                return __generator(this, function (_e) {
+                    switch (_e.label) {
                         case 0:
                             fromPeerId = operation.peerId;
-                            (_a = this.versionVector) === null || _a === void 0 ? void 0 : _a.increment();
+                            if (!(fromPeerId !== ((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id))) return [3 /*break*/, 2];
+                            (_b = this.versionVector) === null || _b === void 0 ? void 0 : _b.increment();
                             console.log("handleSyncCompleted: ", fromPeerId);
                             return [4 /*yield*/, this.connectToPeer(fromPeerId)];
                         case 1:
-                            connection = _d.sent();
-                            dataToSend = JSON.stringify(Object.assign(this._createDataForInitialSync ? this._createDataForInitialSync() : {}, {
+                            connection = _e.sent();
+                            dataToSend = JSON.stringify(Object.assign(this._createDataForInitialSync
+                                ? this._createDataForInitialSync()
+                                : {}, {
                                 _v: {
-                                    p: (_b = this.peer) === null || _b === void 0 ? void 0 : _b.id,
-                                    c: (_c = this.versionVector) === null || _c === void 0 ? void 0 : _c.localVersion.counter,
+                                    p: (_c = this.peer) === null || _c === void 0 ? void 0 : _c.id,
+                                    c: (_d = this.versionVector) === null || _d === void 0 ? void 0 : _d.localVersion.counter,
                                 },
                             }));
                             connection.send(dataToSend);
-                            return [2 /*return*/];
+                            _e.label = 2;
+                        case 2: return [2 /*return*/];
                     }
                 });
             });
