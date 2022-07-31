@@ -23,6 +23,44 @@
     PERFORMANCE OF THIS SOFTWARE.
     ***************************************************************************** */
 
+    function __awaiter(thisArg, _arguments, P, generator) {
+        function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+        return new (P || (P = Promise))(function (resolve, reject) {
+            function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+            function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+            function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+            step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+    }
+
+    function __generator(thisArg, body) {
+        var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+        return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+        function verb(n) { return function (v) { return step([n, v]); }; }
+        function step(op) {
+            if (f) throw new TypeError("Generator is already executing.");
+            while (_) try {
+                if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+                if (y = 0, t) op = [op[0] & 2, t.value];
+                switch (op[0]) {
+                    case 0: case 1: t = op; break;
+                    case 4: _.label++; return { value: op[1], done: false };
+                    case 5: _.label++; y = op[1]; op = [0]; continue;
+                    case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                    default:
+                        if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                        if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                        if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                        if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                        if (t[2]) _.ops.pop();
+                        _.trys.pop(); continue;
+                }
+                op = body.call(thisArg, _);
+            } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+            if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+        }
+    }
+
     function __read(o, n) {
         var m = typeof Symbol === "function" && o[Symbol.iterator];
         if (!m) return o;
@@ -139,7 +177,12 @@
     })(exports.RequestType || (exports.RequestType = {}));
     var Korona = /** @class */ (function () {
         function Korona(options) {
+            var _this = this;
+            this.connections = [];
+            this.outConns = [];
+            this.inConns = [];
             this._options = options;
+            this.connections = [];
             this.outConns = [];
             this.inConns = [];
             this.network = [];
@@ -155,9 +198,11 @@
             this._onPeerLeft = options.onPeerLeft;
             this._createDataForInitialSync = options.createDataForInitialSync;
             if (!this._createDataForInitialSync) {
-                this._createDataForInitialSync = function () {
-                    return {};
-                };
+                this._createDataForInitialSync = function () { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        return [2 /*return*/, {}];
+                    });
+                }); };
             }
             var peerId = options.peerId || randomID();
             if (options.roomId) {
@@ -169,86 +214,126 @@
                 this.onOpen();
             }
         }
-        Korona.prototype.tryToBecomeTheRoomHost = function () {
+        Korona.prototype.getOutConnections = function () {
             var _this = this;
+            return this.connections.filter(function (connection) {
+                return _this.outConns.find(function (conn) {
+                    return conn.peer === connection.peer && conn.label === connection.label;
+                });
+            });
+        };
+        Korona.prototype.tryToBecomeTheRoomHost = function () {
             var _a;
-            console.log("* tryToBecomeTheRoomHost");
-            if (!((_a = this._options) === null || _a === void 0 ? void 0 : _a.roomId)) {
-                return;
-            }
-            var oldPeer = this.peer;
-            this._onOpen = function (pid) {
-                var _a;
-                console.log("* room host created", pid);
-                if (oldPeer) {
-                    console.log("* closing old peer: ", oldPeer.id, __spreadArray([], __read(_this.network), false));
-                    _this.network = _this.network.filter(function (peerId) { return peerId !== oldPeer.id; });
-                    oldPeer.destroy();
-                }
-                if ((_a = _this._options) === null || _a === void 0 ? void 0 : _a.onOpen) {
-                    _this._options.onOpen(pid);
-                }
-            };
-            this.peer = new Peer__default["default"](this._options.roomId, this._options.peerJSOptions);
-            this.onOpen();
-            this.peer.on("error", function (err) {
-                var _a, _b, _c, _d;
-                // Room host already exists
-                if (err.type === "unavailable-id") {
-                    console.log("* room host already exists");
-                    if (!oldPeer) {
-                        // Initialize peer
-                        var peerId = ((_a = _this._options) === null || _a === void 0 ? void 0 : _a.peerId) || randomID();
-                        _this._onOpen = function (pid) {
-                            var _a, _b, _c;
-                            if ((_a = _this._options) === null || _a === void 0 ? void 0 : _a.roomId) {
-                                _this.requestConnection((_b = _this._options) === null || _b === void 0 ? void 0 : _b.roomId, pid);
-                            }
-                            if ((_c = _this._options) === null || _c === void 0 ? void 0 : _c.onOpen) {
-                                _this._options.onOpen(pid);
-                            }
-                        };
-                        _this.peer = new Peer__default["default"](peerId, (_b = _this._options) === null || _b === void 0 ? void 0 : _b.peerJSOptions);
-                        _this.onOpen();
+            return __awaiter(this, void 0, void 0, function () {
+                var oldPeer;
+                var _this = this;
+                return __generator(this, function (_b) {
+                    console.log("* tryToBecomeTheRoomHost");
+                    if (!((_a = this._options) === null || _a === void 0 ? void 0 : _a.roomId)) {
+                        return [2 /*return*/];
                     }
-                    else {
-                        // Reconnect to room
-                        _this.peer = oldPeer;
-                        _this.network = []; // clean up the network
-                        if ((_c = _this._options) === null || _c === void 0 ? void 0 : _c.roomId) {
-                            _this.inConns = _this.inConns.filter(function (conn) { var _a; return conn.peer !== ((_a = _this._options) === null || _a === void 0 ? void 0 : _a.roomId); });
-                            _this.outConns = _this.outConns.filter(function (conn) { var _a; return conn.peer !== ((_a = _this._options) === null || _a === void 0 ? void 0 : _a.roomId); });
-                            _this.requestConnection((_d = _this._options) === null || _d === void 0 ? void 0 : _d.roomId, _this.peer.id);
-                        }
-                    }
-                }
+                    oldPeer = this.peer;
+                    this._onOpen = function (pid) { return __awaiter(_this, void 0, void 0, function () {
+                        var _a;
+                        return __generator(this, function (_b) {
+                            switch (_b.label) {
+                                case 0:
+                                    console.log("* room host created", pid);
+                                    if (oldPeer) {
+                                        console.log("* closing old peer: ", oldPeer.id, __spreadArray([], __read(this.network), false));
+                                        this.network = this.network.filter(function (peerId) { return peerId !== oldPeer.id; });
+                                        oldPeer.destroy();
+                                    }
+                                    if (!((_a = this._options) === null || _a === void 0 ? void 0 : _a.onOpen)) return [3 /*break*/, 2];
+                                    return [4 /*yield*/, this._options.onOpen(pid)];
+                                case 1:
+                                    _b.sent();
+                                    _b.label = 2;
+                                case 2: return [2 /*return*/];
+                            }
+                        });
+                    }); };
+                    this.peer = new Peer__default["default"](this._options.roomId, this._options.peerJSOptions);
+                    this.onOpen();
+                    this.peer.on("error", function (err) { return __awaiter(_this, void 0, void 0, function () {
+                        var peerId;
+                        var _this = this;
+                        var _a, _b, _c, _d;
+                        return __generator(this, function (_e) {
+                            switch (_e.label) {
+                                case 0:
+                                    if (!(err.type === "unavailable-id")) return [3 /*break*/, 3];
+                                    console.log("* room host already exists");
+                                    if (!!oldPeer) return [3 /*break*/, 1];
+                                    peerId = ((_a = this._options) === null || _a === void 0 ? void 0 : _a.peerId) || randomID();
+                                    this._onOpen = function (pid) { return __awaiter(_this, void 0, void 0, function () {
+                                        var _a, _b, _c;
+                                        return __generator(this, function (_d) {
+                                            switch (_d.label) {
+                                                case 0:
+                                                    if (!((_a = this._options) === null || _a === void 0 ? void 0 : _a.roomId)) return [3 /*break*/, 2];
+                                                    return [4 /*yield*/, this.requestConnection((_b = this._options) === null || _b === void 0 ? void 0 : _b.roomId, pid)];
+                                                case 1:
+                                                    _d.sent();
+                                                    _d.label = 2;
+                                                case 2:
+                                                    if (!((_c = this._options) === null || _c === void 0 ? void 0 : _c.onOpen)) return [3 /*break*/, 4];
+                                                    return [4 /*yield*/, this._options.onOpen(pid)];
+                                                case 3:
+                                                    _d.sent();
+                                                    _d.label = 4;
+                                                case 4: return [2 /*return*/];
+                                            }
+                                        });
+                                    }); };
+                                    this.peer = new Peer__default["default"](peerId, (_b = this._options) === null || _b === void 0 ? void 0 : _b.peerJSOptions);
+                                    this.onOpen();
+                                    return [3 /*break*/, 3];
+                                case 1:
+                                    // Reconnect to room
+                                    this.peer = oldPeer;
+                                    this.network = []; // clean up the network
+                                    if (!((_c = this._options) === null || _c === void 0 ? void 0 : _c.roomId)) return [3 /*break*/, 3];
+                                    this.connections = this.connections.filter(function (connection) { var _a; return connection.peer !== ((_a = _this._options) === null || _a === void 0 ? void 0 : _a.roomId); });
+                                    this.inConns = this.inConns.filter(function (conn) { var _a; return conn.peer !== ((_a = _this._options) === null || _a === void 0 ? void 0 : _a.roomId); });
+                                    this.outConns = this.outConns.filter(function (conn) { var _a; return conn.peer !== ((_a = _this._options) === null || _a === void 0 ? void 0 : _a.roomId); });
+                                    return [4 /*yield*/, this.requestConnection((_d = this._options) === null || _d === void 0 ? void 0 : _d.roomId, this.peer.id)];
+                                case 2:
+                                    _e.sent();
+                                    _e.label = 3;
+                                case 3: return [2 /*return*/];
+                            }
+                        });
+                    }); });
+                    return [2 /*return*/];
+                });
             });
         };
         Korona.prototype.send = function (operation, from) {
             var _a;
             var operationJSON;
-            var fromPeerID;
+            var fromPeerId;
             if (!((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id) || !this.versionVector) {
                 return;
             }
             if ("_v" in operation) {
-                fromPeerID = operation["_v"]["p"];
+                fromPeerId = operation["_v"]["p"];
                 // Already has Version information
                 operationJSON = JSON.stringify(operation);
             }
             else {
-                fromPeerID = this.peer.id;
+                fromPeerId = this.peer.id;
                 this.versionVector.increment();
                 operationJSON = JSON.stringify(Object.assign(operation, {
                     _v: {
                         // Version
-                        p: fromPeerID,
+                        p: fromPeerId,
                         c: this.versionVector.localVersion.counter,
                     },
                 }));
             }
-            this.outConns.forEach(function (conn) {
-                if (fromPeerID !== conn.peer &&
+            this.getOutConnections().forEach(function (conn) {
+                if (fromPeerId !== conn.peer &&
                     (!from || (from.peer !== conn.peer && from.label !== conn.label))) {
                     conn.send(operationJSON);
                 }
@@ -257,26 +342,74 @@
         Korona.prototype.onOpen = function () {
             var _this = this;
             var _a;
-            (_a = this.peer) === null || _a === void 0 ? void 0 : _a.on("open", function (id) {
-                if (_this._onOpen) {
-                    _this._onOpen(id);
-                }
-                _this.versionVector = new VersionVector(id);
-                _this.outConns = [];
-                _this.inConns = [];
-                /*
-                if (this.network.length) {
-                  this.network.forEach((peerId) => {
-                    if (peerId !== id) {
-                      this.requestConnection(peerId);
+            (_a = this.peer) === null || _a === void 0 ? void 0 : _a.on("open", function (id) { return __awaiter(_this, void 0, void 0, function () {
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            if (!this._onOpen) return [3 /*break*/, 2];
+                            return [4 /*yield*/, this._onOpen(id)];
+                        case 1:
+                            _a.sent();
+                            _a.label = 2;
+                        case 2:
+                            this.versionVector = new VersionVector(id);
+                            this.connections = [];
+                            this.outConns = [];
+                            this.inConns = [];
+                            /*
+                            if (this.network.length) {
+                              this.network.forEach((peerId) => {
+                                if (peerId !== id) {
+                                  this.requestConnection(peerId);
+                                }
+                              });
+                            }*/
+                            // this.network = [];
+                            this.onPeerConnection();
+                            this.onError();
+                            this.onDisconnected();
+                            this.addToNetwork(id);
+                            return [2 /*return*/];
                     }
-                  });
-                }*/
-                // this.network = [];
-                _this.onPeerConnection();
-                _this.onError();
-                _this.onDisconnect();
-                _this.addToNetwork(id);
+                });
+            }); });
+        };
+        Korona.prototype.connectToPeer = function (peerId) {
+            var _this = this;
+            return new Promise(function (resolve, reject) {
+                var _a;
+                console.log("* connectToPeer", peerId);
+                var connection = _this.connections.find(function (conn) { return conn.peer === peerId; });
+                console.log("** connection", !!connection);
+                if (!connection) {
+                    connection = (_a = _this.peer) === null || _a === void 0 ? void 0 : _a.connect(peerId);
+                    console.log("*** create connection: ", !!connection);
+                    if (connection) {
+                        var helper = function () {
+                            console.log("**** helper: ", !!connection);
+                            if (connection) {
+                                _this.addToOutConns(connection);
+                                _this.addToNetwork(connection.peer);
+                                _this.registerConnectionEvents(connection);
+                                return resolve(connection);
+                            }
+                        };
+                        if (connection.open) {
+                            helper();
+                        }
+                        else {
+                            connection.on("open", helper);
+                        }
+                    }
+                    else {
+                        return reject("connectToPeer failed");
+                    }
+                }
+                else {
+                    _this.addToOutConns(connection);
+                    _this.addToNetwork(peerId);
+                    return resolve(connection);
+                }
             });
         };
         Korona.prototype.onPeerConnection = function () {
@@ -286,35 +419,43 @@
                 connection.on("open", function () {
                     var _a;
                     console.log("* peer connection opened", connection.peer, (_a = _this.peer) === null || _a === void 0 ? void 0 : _a.id);
-                    _this.onConnection(connection);
-                    _this.onData(connection);
-                    _this.onConnClose(connection);
-                    _this.onConnError(connection);
-                    _this.onConnIcestateChanged(connection);
+                    _this.addToInConns(connection);
+                    _this.addToNetwork(connection.peer);
+                    _this.registerConnectionEvents(connection);
                 });
             });
         };
-        Korona.prototype.onConnection = function (connection) {
-            var _a;
-            if (connection.peer !== ((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id)) {
-                this.addToInConns(connection);
-                this.addToNetwork(connection.peer);
-            }
+        Korona.prototype.registerConnectionEvents = function (connection) {
+            this.onData(connection);
+            this.onConnClose(connection);
+            this.onConnError(connection);
+            this.onConnIcestateChanged(connection);
         };
         Korona.prototype.onError = function () {
             var _this = this;
             var _a;
-            (_a = this.peer) === null || _a === void 0 ? void 0 : _a.on("error", function (err) {
+            (_a = this.peer) === null || _a === void 0 ? void 0 : _a.on("error", function (err) { return __awaiter(_this, void 0, void 0, function () {
+                var pid;
                 var _a;
-                console.log("* peer error", err);
-                var pid = String(err).replace("Error: Could not connect to peer ", "");
-                _this.removeFromConnections(pid);
-                if (!((_a = _this.peer) === null || _a === void 0 ? void 0 : _a.disconnected)) {
-                    _this.findNewTarget();
-                }
-            });
+                return __generator(this, function (_b) {
+                    switch (_b.label) {
+                        case 0:
+                            console.log("* peer error", err);
+                            pid = String(err).replace("Error: Could not connect to peer ", "");
+                            return [4 /*yield*/, this.removeFromConnections(pid)];
+                        case 1:
+                            _b.sent();
+                            if (!!((_a = this.peer) === null || _a === void 0 ? void 0 : _a.disconnected)) return [3 /*break*/, 3];
+                            return [4 /*yield*/, this.findNewTarget()];
+                        case 2:
+                            _b.sent();
+                            _b.label = 3;
+                        case 3: return [2 /*return*/];
+                    }
+                });
+            }); });
         };
-        Korona.prototype.onDisconnect = function () {
+        Korona.prototype.onDisconnected = function () {
             var _this = this;
             var _a;
             (_a = this.peer) === null || _a === void 0 ? void 0 : _a.on("disconnected", function () {
@@ -326,54 +467,94 @@
         };
         Korona.prototype.onData = function (connection) {
             var _this = this;
-            connection.on("data", function (data) {
-                var _a;
-                var dataObj = {};
-                try {
-                    dataObj = JSON.parse(data);
-                }
-                catch (error) {
-                    dataObj = {};
-                }
-                console.log("* data", connection.peer, dataObj);
-                var fromPeerID = (_a = dataObj["_v"]) === null || _a === void 0 ? void 0 : _a.p;
-                if (fromPeerID) {
-                    _this.addToNetwork(fromPeerID);
-                }
-                switch (dataObj.type) {
-                    case exports.RequestType.ConnectionRequest:
-                        _this.evaluateRequest(dataObj.peerId);
-                        break;
-                    case exports.RequestType.AddToNetwork:
-                        _this.addToNetwork(dataObj.newPeer);
-                        break;
-                    case exports.RequestType.RemoveFromNetwork:
-                        _this.removeFromNetwork(dataObj.oldPeer);
-                        break;
-                    case exports.RequestType.SyncResponse:
-                        _this.handleSyncResponse(dataObj);
-                        break;
-                    case exports.RequestType.SyncCompleted:
-                        _this.handleSyncCompleted(dataObj);
-                        break;
-                    default:
-                        _this.handleRemoteOperation(dataObj, connection);
-                }
-            });
+            connection.on("data", function (data) { return __awaiter(_this, void 0, void 0, function () {
+                var dataObj, fromPeerId, _a;
+                var _b;
+                return __generator(this, function (_c) {
+                    switch (_c.label) {
+                        case 0:
+                            dataObj = {};
+                            try {
+                                dataObj = JSON.parse(data);
+                            }
+                            catch (error) {
+                                dataObj = {};
+                            }
+                            console.log("* data", connection.peer, dataObj);
+                            fromPeerId = (_b = dataObj["_v"]) === null || _b === void 0 ? void 0 : _b.p;
+                            if (fromPeerId) {
+                                this.addToNetwork(fromPeerId);
+                            }
+                            _a = dataObj.type;
+                            switch (_a) {
+                                case exports.RequestType.ConnectionRequest: return [3 /*break*/, 1];
+                                case exports.RequestType.AddToNetwork: return [3 /*break*/, 3];
+                                case exports.RequestType.RemoveFromNetwork: return [3 /*break*/, 4];
+                                case exports.RequestType.SyncResponse: return [3 /*break*/, 6];
+                                case exports.RequestType.SyncCompleted: return [3 /*break*/, 8];
+                            }
+                            return [3 /*break*/, 10];
+                        case 1: return [4 /*yield*/, this.evaluateConnectionRequest(dataObj.peerId)];
+                        case 2:
+                            _c.sent();
+                            return [3 /*break*/, 12];
+                        case 3:
+                            this.addToNetwork(dataObj.peerId);
+                            return [3 /*break*/, 12];
+                        case 4: return [4 /*yield*/, this.removeFromNetwork(dataObj.peerId)];
+                        case 5:
+                            _c.sent();
+                            return [3 /*break*/, 12];
+                        case 6: return [4 /*yield*/, this.handleSyncResponse(dataObj)];
+                        case 7:
+                            _c.sent();
+                            return [3 /*break*/, 12];
+                        case 8: return [4 /*yield*/, this.handleSyncCompleted(dataObj)];
+                        case 9:
+                            _c.sent();
+                            return [3 /*break*/, 12];
+                        case 10: return [4 /*yield*/, this.handleRemoteOperation(dataObj, connection)];
+                        case 11:
+                            _c.sent();
+                            _c.label = 12;
+                        case 12: return [2 /*return*/];
+                    }
+                });
+            }); });
         };
         Korona.prototype._closeConnection = function (connection) {
-            console.log("* closing connection", connection.peer);
-            this.removeFromConnections(connection.peer);
-            if (!this.hasReachMax()) {
-                this.findNewTarget();
-            }
+            return __awaiter(this, void 0, void 0, function () {
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            console.log("* closing connection", connection.peer);
+                            return [4 /*yield*/, this.removeFromConnections(connection.peer)];
+                        case 1:
+                            _a.sent();
+                            if (!!this.hasReachMax()) return [3 /*break*/, 3];
+                            return [4 /*yield*/, this.findNewTarget()];
+                        case 2:
+                            _a.sent();
+                            _a.label = 3;
+                        case 3: return [2 /*return*/];
+                    }
+                });
+            });
         };
         Korona.prototype.onConnClose = function (connection) {
             var _this = this;
-            connection.on("close", function () {
-                console.log("* connection closed", connection.peer);
-                _this._closeConnection(connection);
-            });
+            connection.on("close", function () { return __awaiter(_this, void 0, void 0, function () {
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            console.log("* connection closed", connection.peer);
+                            return [4 /*yield*/, this._closeConnection(connection)];
+                        case 1:
+                            _a.sent();
+                            return [2 /*return*/];
+                    }
+                });
+            }); });
         };
         Korona.prototype.onConnError = function (connection) {
             connection.on("error", function (error) {
@@ -382,52 +563,94 @@
         };
         Korona.prototype.onConnIcestateChanged = function (connection) {
             var _this = this;
-            connection.on("iceStateChanged", function (state) {
-                console.log("* iceStateChanged", state, connection.peer);
-                if (state === "closed" ||
-                    state === "failed" ||
-                    state === "disconnected") {
-                    _this._closeConnection(connection);
-                }
+            connection.on("iceStateChanged", function (state) { return __awaiter(_this, void 0, void 0, function () {
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            console.log("* iceStateChanged", state, connection.peer);
+                            if (!(state === "closed" ||
+                                state === "failed" ||
+                                state === "disconnected")) return [3 /*break*/, 2];
+                            return [4 /*yield*/, this._closeConnection(connection)];
+                        case 1:
+                            _a.sent();
+                            _a.label = 2;
+                        case 2: return [2 /*return*/];
+                    }
+                });
+            }); });
+        };
+        Korona.prototype.evaluateConnectionRequest = function (peerId) {
+            return __awaiter(this, void 0, void 0, function () {
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            console.log("* evaluateConnectionRequest: ", peerId);
+                            if (!this.hasReachMax()) return [3 /*break*/, 2];
+                            return [4 /*yield*/, this.forwardConnRequest(peerId)];
+                        case 1:
+                            _a.sent();
+                            return [3 /*break*/, 4];
+                        case 2: return [4 /*yield*/, this.acceptConnRequest(peerId)];
+                        case 3:
+                            _a.sent();
+                            _a.label = 4;
+                        case 4: return [2 /*return*/];
+                    }
+                });
             });
         };
-        Korona.prototype.evaluateRequest = function (peerId) {
-            if (this.hasReachMax()) {
-                this.forwardConnRequest(peerId);
-            }
-            else {
-                this.acceptConnRequest(peerId);
-            }
-        };
         Korona.prototype.forwardConnRequest = function (peerId) {
-            var connected = this.outConns.filter(function (conn) { return conn.peer !== peerId; });
-            var randomIdx = Math.floor(Math.random() * connected.length);
-            connected[randomIdx].send(JSON.stringify({
-                type: exports.RequestType.ConnectionRequest,
-                peerId: peerId,
-            }));
-            this.addToNetwork(peerId);
+            return __awaiter(this, void 0, void 0, function () {
+                var connected, randomIdx;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            console.log("* forwardConnRequest: ", peerId);
+                            connected = this.getOutConnections().filter(function (conn) { return conn.peer !== peerId; });
+                            if (!(connected.length > 0)) return [3 /*break*/, 1];
+                            console.log("** can forward");
+                            randomIdx = Math.floor(Math.random() * connected.length);
+                            connected[randomIdx].send(JSON.stringify({
+                                type: exports.RequestType.ConnectionRequest,
+                                peerId: peerId,
+                            }));
+                            this.addToNetwork(peerId);
+                            return [3 /*break*/, 3];
+                        case 1:
+                            console.log("** can't forward");
+                            return [4 /*yield*/, this.acceptConnRequest(peerId)];
+                        case 2:
+                            _a.sent();
+                            _a.label = 3;
+                        case 3: return [2 /*return*/];
+                    }
+                });
+            });
         };
         Korona.prototype.acceptConnRequest = function (peerId) {
-            var _a, _b;
-            var connBack = (_a = this.peer) === null || _a === void 0 ? void 0 : _a.connect(peerId);
-            if (connBack) {
-                this.addToOutConns(connBack);
-                this.addToNetwork(peerId);
-                var initialData_1 = JSON.stringify({
-                    type: exports.RequestType.SyncResponse,
-                    peerId: (_b = this.peer) === null || _b === void 0 ? void 0 : _b.id,
-                    network: this.network,
+            var _a;
+            return __awaiter(this, void 0, void 0, function () {
+                var connection, initialData;
+                return __generator(this, function (_b) {
+                    switch (_b.label) {
+                        case 0:
+                            console.log("* acceptConnRequest: ", peerId);
+                            return [4 /*yield*/, this.connectToPeer(peerId)];
+                        case 1:
+                            connection = _b.sent();
+                            if (connection) {
+                                initialData = JSON.stringify({
+                                    type: exports.RequestType.SyncResponse,
+                                    peerId: (_a = this.peer) === null || _a === void 0 ? void 0 : _a.id,
+                                    network: this.network,
+                                });
+                                connection.send(initialData);
+                            }
+                            return [2 /*return*/];
+                    }
                 });
-                if (connBack.open) {
-                    connBack.send(initialData_1);
-                }
-                else {
-                    connBack.on("open", function () {
-                        connBack.send(initialData_1);
-                    });
-                }
-            }
+            });
         };
         Korona.prototype.addToNetwork = function (peerId) {
             if (!this.network.find(function (p) { return p === peerId; })) {
@@ -437,34 +660,55 @@
                 }
                 this.send({
                     type: exports.RequestType.AddToNetwork,
-                    newPeer: peerId,
+                    peerId: peerId,
                 });
             }
         };
         Korona.prototype.removeFromConnections = function (peerId) {
-            console.log("* removeFromConections: ", peerId);
-            this.inConns = this.inConns.filter(function (conn) { return conn.peer !== peerId; });
-            this.outConns = this.outConns.filter(function (conn) { return conn.peer !== peerId; });
-            this.removeFromNetwork(peerId);
+            return __awaiter(this, void 0, void 0, function () {
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            console.log("* removeFromConections: ", peerId);
+                            this.connections = this.connections.filter(function (conn) { return conn.peer !== peerId; });
+                            this.inConns = this.inConns.filter(function (conn) { return conn.peer !== peerId; });
+                            this.outConns = this.outConns.filter(function (conn) { return conn.peer !== peerId; });
+                            return [4 /*yield*/, this.removeFromNetwork(peerId)];
+                        case 1:
+                            _a.sent();
+                            return [2 /*return*/];
+                    }
+                });
+            });
         };
         Korona.prototype.removeFromNetwork = function (peerId) {
             var _a, _b, _c, _d;
-            var idx = this.network.indexOf(peerId);
-            if (idx >= 0) {
-                this.network.splice(idx, 1);
-                if (this._onPeerLeft) {
-                    this._onPeerLeft(peerId);
-                }
-                this.send({
-                    type: exports.RequestType.RemoveFromNetwork,
-                    oldPeer: peerId,
+            return __awaiter(this, void 0, void 0, function () {
+                var idx;
+                return __generator(this, function (_e) {
+                    switch (_e.label) {
+                        case 0:
+                            idx = this.network.indexOf(peerId);
+                            if (!(idx >= 0)) return [3 /*break*/, 2];
+                            this.network.splice(idx, 1);
+                            if (this._onPeerLeft) {
+                                this._onPeerLeft(peerId);
+                            }
+                            this.send({
+                                type: exports.RequestType.RemoveFromNetwork,
+                                peerId: peerId,
+                            });
+                            if (!(((_a = this._options) === null || _a === void 0 ? void 0 : _a.roomId) &&
+                                ((_b = this.peer) === null || _b === void 0 ? void 0 : _b.id) !== ((_c = this._options) === null || _c === void 0 ? void 0 : _c.roomId) &&
+                                peerId === ((_d = this._options) === null || _d === void 0 ? void 0 : _d.roomId))) return [3 /*break*/, 2];
+                            return [4 /*yield*/, this.tryToBecomeTheRoomHost()];
+                        case 1:
+                            _e.sent();
+                            _e.label = 2;
+                        case 2: return [2 /*return*/];
+                    }
                 });
-                if (((_a = this._options) === null || _a === void 0 ? void 0 : _a.roomId) &&
-                    ((_b = this.peer) === null || _b === void 0 ? void 0 : _b.id) !== ((_c = this._options) === null || _c === void 0 ? void 0 : _c.roomId) &&
-                    peerId === ((_d = this._options) === null || _d === void 0 ? void 0 : _d.roomId)) {
-                    this.tryToBecomeTheRoomHost();
-                }
-            }
+            });
         };
         Korona.prototype.hasReachMax = function () {
             var halfTheNetwork = Math.ceil(this.network.length / 2);
@@ -473,145 +717,163 @@
             return tooManyInConns || tooManyOutConns;
         };
         Korona.prototype.findNewTarget = function () {
-            var _this = this;
             var _a;
-            var connected = this.outConns.map(function (conn) { return conn.peer; });
-            var unconnected = this.network.filter(function (peerId) { return connected.indexOf(peerId) === -1; });
-            var possibleTargets = unconnected.filter(function (peerId) { var _a; return peerId !== ((_a = _this.peer) === null || _a === void 0 ? void 0 : _a.id); });
-            console.log("* findNewTarget, possibleTargets: ", possibleTargets);
-            if (possibleTargets.length === 0) ;
-            else {
-                var randomIdx = Math.floor(Math.random() * possibleTargets.length);
-                var newTarget = possibleTargets[randomIdx];
-                if ((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id) {
-                    this.requestConnection(newTarget, this.peer.id);
-                }
-            }
-        };
-        Korona.prototype.requestConnection = function (targetPeerID, peerId) {
-            var _a;
-            var timestamp = Date.now();
-            console.log("* requestConnection: ", targetPeerID, peerId, timestamp);
-            var conn = (_a = this.peer) === null || _a === void 0 ? void 0 : _a.connect(targetPeerID);
-            if (conn) {
-                this.addToOutConns(conn);
-                var dataToSend_1 = JSON.stringify({
-                    type: exports.RequestType.ConnectionRequest,
-                    peerId: peerId,
+            return __awaiter(this, void 0, void 0, function () {
+                var connected, unconnected, possibleTargets, randomIdx, newTarget;
+                var _this = this;
+                return __generator(this, function (_b) {
+                    switch (_b.label) {
+                        case 0:
+                            connected = this.outConns.map(function (conn) { return conn.peer; });
+                            unconnected = this.network.filter(function (peerId) { return connected.indexOf(peerId) === -1; });
+                            possibleTargets = unconnected.filter(function (peerId) { var _a; return peerId !== ((_a = _this.peer) === null || _a === void 0 ? void 0 : _a.id); });
+                            console.log("* findNewTarget, possibleTargets: ", possibleTargets);
+                            if (!(possibleTargets.length === 0)) return [3 /*break*/, 1];
+                            return [3 /*break*/, 3];
+                        case 1:
+                            randomIdx = Math.floor(Math.random() * possibleTargets.length);
+                            newTarget = possibleTargets[randomIdx];
+                            if (!((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id)) return [3 /*break*/, 3];
+                            return [4 /*yield*/, this.requestConnection(newTarget, this.peer.id)];
+                        case 2:
+                            _b.sent();
+                            _b.label = 3;
+                        case 3: return [2 /*return*/];
+                    }
                 });
-                var _onOpen_1 = function () {
-                    conn.on("error", function (error) {
-                        console.error("* requestConnection error: ", targetPeerID, error, timestamp);
-                    });
-                    conn.on("close", function () {
-                        console.log("* requestConnection close: ", targetPeerID, timestamp);
-                    });
-                    conn.on("iceStateChanged", function (state) {
-                        console.log("* requestConnection iceStateChanged: ", targetPeerID, state, timestamp);
-                    });
-                };
-                if (conn.open) {
-                    conn.send(dataToSend_1);
-                    _onOpen_1();
-                }
-                else {
-                    conn.on("open", function () {
-                        conn.send(dataToSend_1);
-                        _onOpen_1();
-                    });
-                }
-            }
+            });
+        };
+        Korona.prototype.requestConnection = function (targetPeerId, peerId) {
+            var _a;
+            return __awaiter(this, void 0, void 0, function () {
+                var timestamp, connection, dataToSend;
+                return __generator(this, function (_b) {
+                    switch (_b.label) {
+                        case 0:
+                            if (!peerId) {
+                                peerId = (_a = this.peer) === null || _a === void 0 ? void 0 : _a.id;
+                            }
+                            if (!peerId) {
+                                throw new Error("requestConnection: peerId is required");
+                            }
+                            timestamp = Date.now();
+                            console.log("* requestConnection: ", targetPeerId, peerId, timestamp);
+                            return [4 /*yield*/, this.connectToPeer(targetPeerId)];
+                        case 1:
+                            connection = _b.sent();
+                            console.log("* requestConnection response: ", !!connection);
+                            dataToSend = JSON.stringify({
+                                type: exports.RequestType.ConnectionRequest,
+                                peerId: peerId,
+                            });
+                            connection.send(dataToSend);
+                            return [2 /*return*/];
+                    }
+                });
+            });
         };
         Korona.prototype.addToInConns = function (connection) {
-            if (!!connection && !this.isAlreadyConnectedIn(connection)) {
-                this.inConns.push(connection);
+            if (!!connection && !this._isAlreadyConnectedIn(connection)) {
+                this.inConns.push({ peer: connection.peer, label: connection.label });
+                this._addToConnection(connection);
             }
         };
         Korona.prototype.addToOutConns = function (connection) {
-            if (!!connection && !this.isAlreadyConnectedOut(connection)) {
-                this.outConns.push(connection);
+            if (!!connection && !this._isAlreadyConnectedOut(connection)) {
+                this.outConns.push({ peer: connection.peer, label: connection.label });
+                this._addToConnection(connection);
             }
         };
-        Korona.prototype.isAlreadyConnectedOut = function (connection) {
+        Korona.prototype._addToConnection = function (connection) {
+            if (!!connection &&
+                !this.connections.find(function (conn) {
+                    return conn.label === connection.label && conn.peer === connection.peer;
+                })) {
+                this.connections.push(connection);
+            }
+        };
+        Korona.prototype._isAlreadyConnectedOut = function (connection) {
             return !!this.outConns.find(function (conn) { return conn.peer === connection.peer && conn.label === connection.label; });
         };
-        Korona.prototype.isAlreadyConnectedIn = function (connection) {
+        Korona.prototype._isAlreadyConnectedIn = function (connection) {
             return !!this.inConns.find(function (conn) { return conn.peer === connection.peer && conn.label === connection.label; });
         };
         Korona.prototype.handleRemoteOperation = function (operation, connection) {
             var _a;
-            var v = operation._v;
-            if (v &&
-                "p" in v &&
-                "c" in v &&
-                v.p !== ((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id) && // Can't send message back to the sender
-                this.versionVector &&
-                !this.versionVector.hasBeenApplied(new Version(v.p, v.c))) {
-                this.versionVector.update(new Version(v.p, v.c));
-                this.send(operation, connection);
-                if (this._onData) {
-                    this._onData(operation, connection);
-                }
-            }
+            return __awaiter(this, void 0, void 0, function () {
+                var v;
+                return __generator(this, function (_b) {
+                    switch (_b.label) {
+                        case 0:
+                            v = operation._v;
+                            if (!(v &&
+                                "p" in v &&
+                                "c" in v &&
+                                v.p !== ((_a = this.peer) === null || _a === void 0 ? void 0 : _a.id) && // Can't send message back to the sender
+                                this.versionVector &&
+                                !this.versionVector.hasBeenApplied(new Version(v.p, v.c)))) return [3 /*break*/, 2];
+                            this.versionVector.update(new Version(v.p, v.c));
+                            this.send(operation, connection);
+                            if (!this._onData) return [3 /*break*/, 2];
+                            return [4 /*yield*/, this._onData(operation, connection)];
+                        case 1:
+                            _b.sent();
+                            _b.label = 2;
+                        case 2: return [2 /*return*/];
+                    }
+                });
+            });
         };
         Korona.prototype.handleSyncResponse = function (operation) {
-            var _this = this;
-            var _a, _b;
-            var fromPeerID = operation.peerId;
-            var network = operation.network || [];
-            network.forEach(function (peerId) { return _this.addToNetwork(peerId); });
-            // Sync complete
-            var completedMessage = JSON.stringify({
-                type: exports.RequestType.SyncCompleted,
-                peerId: (_a = this.peer) === null || _a === void 0 ? void 0 : _a.id,
+            var _a;
+            return __awaiter(this, void 0, void 0, function () {
+                var fromPeerId, network, connection, completedMessage;
+                var _this = this;
+                return __generator(this, function (_b) {
+                    switch (_b.label) {
+                        case 0:
+                            fromPeerId = operation.peerId;
+                            network = operation.network || [];
+                            network.forEach(function (peerId) { return _this.addToNetwork(peerId); });
+                            // Sync complete
+                            console.log("* handleSyncResponse: ", fromPeerId, network);
+                            return [4 /*yield*/, this.connectToPeer(fromPeerId)];
+                        case 1:
+                            connection = _b.sent();
+                            completedMessage = JSON.stringify({
+                                type: exports.RequestType.SyncCompleted,
+                                peerId: (_a = this.peer) === null || _a === void 0 ? void 0 : _a.id,
+                            });
+                            connection.send(completedMessage);
+                            return [2 /*return*/];
+                    }
+                });
             });
-            var connection = this.outConns.find(function (conn) { return conn.peer === fromPeerID; });
-            if (connection) {
-                connection.send(completedMessage);
-            }
-            else {
-                connection = (_b = this.peer) === null || _b === void 0 ? void 0 : _b.connect(fromPeerID);
-                if (connection) {
-                    this.addToOutConns(connection);
-                    if (connection.open) {
-                        connection.send(completedMessage);
-                    }
-                    else {
-                        connection.on("open", function () {
-                            connection === null || connection === void 0 ? void 0 : connection.send(completedMessage);
-                        });
-                    }
-                }
-            }
         };
         Korona.prototype.handleSyncCompleted = function (operation) {
-            var _a, _b, _c, _d;
-            var fromPeerID = operation.peerId;
-            (_a = this.versionVector) === null || _a === void 0 ? void 0 : _a.increment();
-            var connection = this.outConns.find(function (conn) { return conn.peer === fromPeerID; });
-            var dataToSend = JSON.stringify(Object.assign(this._createDataForInitialSync ? this._createDataForInitialSync() : {}, {
-                _v: {
-                    p: (_b = this.peer) === null || _b === void 0 ? void 0 : _b.id,
-                    c: (_c = this.versionVector) === null || _c === void 0 ? void 0 : _c.localVersion.counter,
-                },
-            }));
-            if (connection) {
-                connection.send(dataToSend);
-            }
-            else {
-                connection = (_d = this.peer) === null || _d === void 0 ? void 0 : _d.connect(fromPeerID);
-                if (connection) {
-                    this.addToOutConns(connection);
-                    if (connection.open) {
-                        connection.send(dataToSend);
+            var _a, _b, _c;
+            return __awaiter(this, void 0, void 0, function () {
+                var fromPeerId, connection, dataToSend;
+                return __generator(this, function (_d) {
+                    switch (_d.label) {
+                        case 0:
+                            fromPeerId = operation.peerId;
+                            (_a = this.versionVector) === null || _a === void 0 ? void 0 : _a.increment();
+                            console.log("handleSyncCompleted: ", fromPeerId);
+                            return [4 /*yield*/, this.connectToPeer(fromPeerId)];
+                        case 1:
+                            connection = _d.sent();
+                            dataToSend = JSON.stringify(Object.assign(this._createDataForInitialSync ? this._createDataForInitialSync() : {}, {
+                                _v: {
+                                    p: (_b = this.peer) === null || _b === void 0 ? void 0 : _b.id,
+                                    c: (_c = this.versionVector) === null || _c === void 0 ? void 0 : _c.localVersion.counter,
+                                },
+                            }));
+                            connection.send(dataToSend);
+                            return [2 /*return*/];
                     }
-                    else {
-                        connection.on("open", function () {
-                            connection === null || connection === void 0 ? void 0 : connection.send(dataToSend);
-                        });
-                    }
-                }
-            }
+                });
+            });
         };
         return Korona;
     }());
