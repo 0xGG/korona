@@ -1,14 +1,18 @@
 {
   "name": "@0xgg/korona",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "out/src/index.js",
   "repository": "git@github.com:0xGG/korona.git",
   "author": "Yiyi Wang <shd101wyy@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@rollup/plugin-json": "^4.1.0",
     "@rollup/plugin-typescript": "^3.0.0",
     "@types/node": "^13.7.0",
+    "@types/peerjs": "^1.1.0",
+    "http-server": "^14.1.1",
     "husky": "^8.0.1",
+    "rollup": "^2.77.2",
     "tslib": "^2.4.0",
     "typescript": "^4.7.4"
   },
@@ -19,7 +23,8 @@
     "build:web:watch": "rollup -w --config rollup.config.js",
     "prepare": "husky install && yarn build && yarn build:web",
     "test": "jest --no-coverage",
-    "test:coverage": "jest"
+    "test:coverage": "jest",
+    "serve:web": "http-server"
   },
   "files": [
     "build",

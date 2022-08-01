@@ -1,10 +1,10 @@
 export default class Version {
-  public peerID: string;
+  public peerId: string;
   public counter: number;
   public exceptions: number[];
 
-  constructor(peerID: string, counter = 0) {
-    this.peerID = peerID;
+  constructor(peerId: string, counter = 0) {
+    this.peerId = peerId;
     this.counter = counter;
     this.exceptions = [];
   }
