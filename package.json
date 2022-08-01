@@ -1,6 +1,6 @@
 {
   "name": "@0xgg/korona",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "main": "out/src/index.js",
   "repository": "git@github.com:0xGG/korona.git",
   "author": "Yiyi Wang <shd101wyy@gmail.com>",

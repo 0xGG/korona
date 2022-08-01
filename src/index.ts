@@ -34,7 +34,7 @@ export enum RequestType {
 }
 
 export class Korona {
-  private peer?: Peer;
+  public peer?: Peer;
   private connections: DataConnection[] = [];
   private outConns = new Set<string>();
   private inConns = new Set<string>();
@@ -59,7 +59,7 @@ export class Korona {
    * List of peer IDs
    */
   public network: Set<string>;
-  public networkTimestamps: { [key: string]: number } = {};
+  private networkTimestamps: { [key: string]: number } = {};
 
   constructor(options: KoronaOptions) {
     this._options = options;
