@@ -167,6 +167,7 @@
       const sendButton = document.getElementById("send-button");
 
       const appendMessageElement = (messageID, peerId, message)=> {
+        console.log("* appendMessageElement: ", messageID, peerId, message);
         if (chatMessages.find(m => m.id === messageID)) { // Message already exists
           return;
         }
@@ -254,11 +255,11 @@
         },
         onPeerJoined: peerId => {
           console.log("peer joined: ", peerId);
-          document.getElementById("peers-number").innerText = peer.network.length;
+          document.getElementById("peers-number").innerText = peer.network.size;
         },
         onPeerLeft: peerId => {
           console.log("peer left: ", peerId);
-          document.getElementById("peers-number").innerText = peer.network.length;
+          document.getElementById("peers-number").innerText = peer.network.size;
         },
         onData: (data)=> {
           console.log("received data: ", data)
@@ -273,6 +274,9 @@
         },
         onDisconnected: ()=> {
           console.log("Disconnected")
+        },
+        onPubSubHostChanged: ()=> {
+          console.log("PubSub host changed")
         },
         createDataForInitialSync: ()=> {
           return {
