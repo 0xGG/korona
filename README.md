@@ -75,7 +75,7 @@ peer.on("open", async (peerId) => {
   });
 
   // When the PubSub host changed,
-  peer.on("pubSubHostChanged", async () => {
+  peer.on("pubsubHostChanged", async () => {
     // Do something
   });
 
