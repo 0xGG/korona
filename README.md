@@ -19,127 +19,80 @@ https://0xgg.github.io/korona/
 
 ## Usages
 
-TODO
-
 Check the `index.html` for example usages.
 
-## Workflow
+```typescript
+import { Korona, randomId } from "@0xgg/korona";
 
-Start:
+// Initialize the Korona P2P network
+const peer = new Korona({
+  peerId = randomId(), // The peerId, default to `randomId()`
+  roomId = "public-rrom", // The roomId, default to `undefined`. If specified, then the peer will try to join the PubSub room. The peer might become the PubSub room host if there is no host yet.
+  peerJSOptions: {
+    // Follows https://peerjs.com/docs/#peer-options
+  },
+  maxPeers: 5, // Max number of peer connections that your peer can have
+});
 
-- if for pubsub
-  - `this.tryToBecomeTheRoomHost`
-- else initialize peer
+// Get ready to be used
+peer.on("open", async (peerId) => {
+  // When another peer just connected to you and tries to sync data with you,
+  // you send some data back.
+  peer.on("sync", async (send, peerId) => {
+    return send({
+      // ... data that you want to send
+    });
+  });
 
-  - peer `this.onOpen`
-    - `this.onPeerConnection`: other peer connects to you
-      - connection onOpen
-        - `this.onConnection`
-          - `this.addToInConns(connection)`
-          - `this.addToNetwork(connection.peer)`
-        - `this.onData`
-          - if get fromPeerId
-            - `this.addToNetwork(fromPeerId)`
-          - switch message type
-            - `RequestType.ConnectionRequest`: someone requests to connect to you
-              - `this.evaluateConnectionRequest(peerId)`
-            - `RequestType.AddToNetwork`: add some peer to network
-              - `this.addToNetwork(peerId)`
-            - `RequestType.RemoveFromNetwork`: remove some peer from network
-              - `this.removeFromNetwork(peerId)`
-            - `RequestType.SyncResponse`
-              - `this.handleSyncResponse(dataObj)`
-            - `RequestType.SyncCompleted`
-              - `this.handleSyncCompleted(dataObj)`
-            - else:
-              - `this.handleRemoteOperation(dataObj, connection)`
-        - `this.onConnClose`
-          - `this._closeConnection(connection)`
-        - `this.onConnError`
-          - trigger callback only now
-        - `this.onConnIcestateChanged`
-          - state = "closed" | "failed" | "disconnected"
-            `this._closeConnection(connection)`
-    - `this.onError`
-      - if `Error: Could not connect to peer`
-        - `this.removeFromConnection(errorPeerId)`
-        - `this.findNewTarget()`
-    - `this.onDisconnected`: trigger user defined callback
-    - `this.addToNetwork(peerId)`
+  // When a new peer joined the P2P network
+  peer.on("peerJoined", async (peerId) => {
+    console.log(`${peerId} joined`);
+  });
 
-- addToNetwork(peerId):
+  // When a peer left the P2P network
+  peer.on("peerLeft", async (peerId) => {
+    console.log(`${peerId} left`);
+  });
 
-  - if `peerId` not in `this.network`:
-    - this.network.push(peerId)
-    - trigger onPeerJoined(peerId) callback
-    - send to other peers `RequestType.AddToNetwork`
+  // When your peer gets disconnnected from the server but keep the connections alive in the P2P network. Will not be able to accept new peer connections.
+  peer.on("disconnected", async () => {
+    // Do something
+  });
 
-- removeFromNetwork:
+  // Emitted when the peer is destroyed and can no longer accept or create any new connections. At this time, the peer's connections will all be closed.
+  peer.on("close", async () => {
+    // Do something
+  });
 
-  - if `peerId` in `this.network`
+  // When there is peer error: https://peerjs.com/docs/#peeron-error
+  peer.on("error", async (error) => {
+    // Do something
+  });
 
-    - remove `peerId` from `this.network`
-    - trigger onPeerLeft(peerId) callback
-    - send to other peers `RequestType.RemoveFromNetwork`
+  // When you receive data from other peers
+  peer.on("data", async (data: any) => {
+    // Do something
+  });
 
-    - if for pubsub and `peerId` is roomId
-      - `this.tryToBecomeTheRoomHost()`
+  // When the PubSub host changed,
+  peer.on("pubSubHostChanged", async () => {
+    // Do something
+  });
 
-- requestConnection(targetPeerId, peerId):
+  // Join the P2P network that other peer lives in
+  await peer.requestConnection("target-peer-id");
 
-  - `peerId` connects to `targetPeerId` as `conn`
-  - save `conn` to `this.addToOutConns`
-  - send `RequestType.ConnectionRequest` to `peerId`
+  // Broadcast the data to all other peers in the P2P network
+  await peer.broadcast({
+    // Data goes here
+  });
 
-- closeConnection:
-
-- removeFromConnections(peerId):
-
-  - remove from `this.inConns`
-  - remove from `this.outConns`
-  - `this.removeFromNetwork(peerId)`
-
-- evaluateConnectionRequest(peerId): `peerId` tries to connect to you
-
-  - if `this.hasReachMax()`
-    - `this.forwardConnRequest(peerId)`
-  - else
-    - `this.acceptConnRequest(peerId)`
-
-- hasReachMax():
-
-  - Check if the your peer has connected to enough number of peers
-
-- forwardConnRequest(peerId):
-
-  - Randomly pick one `conn` from `this.outConns`
-  - send `RequestType.ConnectionRequest` to `conn`
-  - `this.addToNetwork(peerId)`
-
-- acceptConnRequest(peerId):
-
-  - connect your peer to `peerId` as `connBack`
-  - `this.addToOutConns(connBack)`
-  - `this.addToNetwork(peerId`
-  - send `Request.SyncResponse` to `connBack`
-
-- addToInConns(connection): Add connection to `this.inConns`
-- addToOutConns(connection): Add connection to `this.outConns`
-
-- findNewTarget: Connect to other peers in the network
-
-  - find peers in `this.network` that is not in `this.outConns` as `possibleTargets`
-  - randomly pick one in target and `this.requestConection` to it.
-
-- handleSyncResponse(fromPeerId, network):
-
-  - get `network` and call `this.addToNetwork(peerId)` for each `peerId` in `network`
-  - get `fromPeerId` and get connection from you to `fromPeerId` as `connection`
-  - send `RequestType.SyncCompleted` to `connection`
-
-- handleSyncCompleted:
-
-- handleRemoteOperation:
+  // Send data to specific peer by id
+  await peer.send("target-peer-id", {
+    // Data goes here
+  });
+});
+```
 
 ## References
 

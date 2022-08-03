@@ -90,7 +90,7 @@
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.6/dist/peerjs.min.js"></script>
   <script src="./build/bundle.js"></script>
   <script>
-    function randomID() {
+    function randomId() {
       return Math.random()
         .toString(36)
         .substr(2, 9);
@@ -160,7 +160,7 @@
     async function main() {
       const randomColorGenerator = new RandomColorGenerator();
       const maxPeers = 5;
-      const peerId = randomID();
+      const peerId = randomId();
       const chatMessages = [];
       const chatPanel = document.getElementById("chat-panel");
       const messageInput = document.getElementById("message-input");
@@ -225,7 +225,7 @@
               messageInput.focus();
 
               // broadcast
-              const messageID = randomID();
+              const messageID = randomId();
               peer.send({
                 type: "SendMessage",
                 id: messageID,
