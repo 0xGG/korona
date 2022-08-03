@@ -1,6 +1,6 @@
 {
   "name": "@0xgg/korona",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "main": "out/src/index.js",
   "repository": "git@github.com:0xGG/korona.git",
   "author": "Yiyi Wang <shd101wyy@gmail.com>",
@@ -16,7 +16,6 @@
     "rollup": "^2.77.2",
     "rollup-plugin-polyfill-node": "^0.10.2",
     "tslib": "^2.4.0",
-    "typed-emitter": "^2.1.0",
     "typescript": "^4.7.4"
   },
   "scripts": {
@@ -34,6 +33,7 @@
     "out"
   ],
   "dependencies": {
-    "peerjs": "^1.4.6"
+    "peerjs": "^1.4.6",
+    "typed-emitter": "^2.1.0"
   }
 }
