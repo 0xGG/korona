@@ -206,62 +206,66 @@
           // secure: true,
         },
         maxPeers: maxPeers,
-        onOpen: () => {
-          document.getElementById("peer-id").innerText = peerId;
-          document.getElementById("peer-id").style.color = randomColorGenerator.generateColor(peerId);
-          document.getElementById("shareable-link").innerText =
-            location.protocol + "//" + location.host + location.pathname + "?peerId=" + peer.peer.id;
+      });
 
-          messageInput.placeholder = "Enter your message here"
-          messageInput.disabled = false;
+      peer.on("open", async(peerId)=> {
+        document.getElementById("peer-id").innerText = peerId;
+        document.getElementById("peer-id").style.color = randomColorGenerator.generateColor(peerId);
+        document.getElementById("shareable-link").innerText =
+          location.protocol + "//" + location.host + location.pathname + "?peerId=" + peer.peer.id;
 
-          const sendMessage = ()=> {
-            const value = messageInput.value.trim();
-              if (!value.length) {
-                messageInput.value = "";
-                return;
-              }
+        messageInput.placeholder = "Enter your message here"
+        messageInput.disabled = false;
+
+        const sendMessage = ()=> {
+          const value = messageInput.value.trim();
+            if (!value.length) {
               messageInput.value = "";
-              messageInput.focus();
-
-              // broadcast
-              const messageID = randomId();
-              peer.send({
-                type: "SendMessage",
-                id: messageID,
-                peerId: peerId,
-                message: value
-              });
-
-              // create dom element
-              appendMessageElement(messageID, peerId, value);
-          }
-
-          messageInput.addEventListener("keydown", (event)=> {
-            if (event.which === 13) {
-             sendMessage();
+              return;
             }
-          })
-          sendButton.addEventListener("click", ()=> {
-            sendMessage();
-          })
+            messageInput.value = "";
+            messageInput.focus();
 
+            // broadcast
+            const messageID = randomId();
+            peer.broadcast({
+              type: "SendMessage",
+              id: messageID,
+              peerId: peerId,
+              message: value
+            });
 
-          const targetPeerIDMatch = location.search.match(/peerId\=(.+)$/);
-          if (targetPeerIDMatch) {
-            const targetPeerID = targetPeerIDMatch[1];
-            peer.requestConnection(targetPeerID);
+            // create dom element
+            appendMessageElement(messageID, peerId, value);
+        }
+
+        messageInput.addEventListener("keydown", (event)=> {
+          if (event.which === 13) {
+           sendMessage();
           }
-        },
-        onPeerJoined: peerId => {
+        })
+        sendButton.addEventListener("click", ()=> {
+          sendMessage();
+        })
+
+
+        const targetPeerIDMatch = location.search.match(/peerId\=(.+)$/);
+        if (targetPeerIDMatch) {
+          const targetPeerID = targetPeerIDMatch[1];
+          peer.requestConnection(targetPeerID);
+        }
+
+        peer.on("peerJoined", async (peerId) => {
           console.log("peer joined: ", peerId);
           document.getElementById("peers-number").innerText = peer.network.size;
-        },
-        onPeerLeft: peerId => {
+        })
+
+        peer.on("peerLeft", async (peerId) => {
           console.log("peer left: ", peerId);
           document.getElementById("peers-number").innerText = peer.network.size;
-        },
-        onData: (data)=> {
+        })
+
+        peer.on("data", (data)=> {
           console.log("received data: ", data)
           if (data.type === "SendMessage") {
             appendMessageElement(data.id, data.peerId, data.message);
@@ -271,20 +275,28 @@
               appendMessageElement(chatMessage.id, chatMessage.peerId, chatMessage.message);
             })
           }
-        },
-        onDisconnected: ()=> {
-          console.log("Disconnected")
-        },
-        onPubSubHostChanged: ()=> {
-          console.log("PubSub host changed")
-        },
-        createDataForInitialSync: ()=> {
-          return {
+        })
+
+        peer.on("disconnected", ()=> {
+          console.log("Disconnected");
+        })
+
+        peer.on("close", ()=> {
+          console.log("Close")
+        })
+
+        peer.on("pubsubHostChanged", ()=> {
+          console.log("pubsubHostChanged")
+        })
+
+        peer.on("sync", async (send)=> {
+          send({
             type: "ChatMessages",
             messages: chatMessages,
-          }
-        }
-      });
+          })
+        })
+
+      })
 
       window["peer"] = peer;
     }

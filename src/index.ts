@@ -286,6 +286,8 @@ export class Korona extends (EventEmitter as new () => TypedEmitter<KoronaEvents
       }*/
       // this.network = [];
 
+      this.emit("open", id);
+
       this.onPeerConnection();
       this.onError();
       this.onDisconnected();
@@ -294,8 +296,6 @@ export class Korona extends (EventEmitter as new () => TypedEmitter<KoronaEvents
       if (extraAction) {
         await extraAction(id);
       }
-
-      this.emit("open", id);
 
       await this.addToNetwork(id);
     });
@@ -741,7 +741,7 @@ export class Korona extends (EventEmitter as new () => TypedEmitter<KoronaEvents
     }
   }
 
-  public isPubSubHost(): boolean {
+  public isPubsubHost(): boolean {
     return (
       this._options?.roomId !== undefined &&
       this.peer?.id === this._options?.roomId

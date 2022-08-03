@@ -1,4 +1,5 @@
 import typescript from "@rollup/plugin-typescript";
+import nodePolyfills from "rollup-plugin-polyfill-node";
 
 module.exports = {
   input: "src/index.ts",
@@ -7,8 +8,8 @@ module.exports = {
     format: "umd",
     name: "Korona",
     globals: {
-      peerjs: "Peer"
-    }
+      peerjs: "Peer",
+    },
   },
-  plugins: [typescript()]
+  plugins: [typescript(), nodePolyfills(/* options */)],
 };
