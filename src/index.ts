@@ -2,8 +2,10 @@
 import Peer, { PeerJSOption, DataConnection, util } from "peerjs";
 import VersionVector from "./versionVector";
 import Version from "./version";
+import EventEmitter from "events";
+import TypedEmitter from "typed-emitter";
 
-export function randomID() {
+export function randomId() {
   return Math.random().toString(36).substr(2, 9);
 }
 
@@ -15,14 +17,6 @@ export interface KoronaOptions {
   roomId?: string;
   peerJSOptions: PeerJSOption;
   maxPeers?: number;
-  onOpen?: (id: string) => Promise<void>;
-  // onConnection?: (connection: Peer.DataConnection) => void;
-  onData?: (data: any, connection: DataConnection) => Promise<void>;
-  onDisconnected?: () => Promise<void>;
-  onPeerJoined?: (peerId: string) => Promise<void>;
-  onPeerLeft?: (peerId: string) => Promise<void>;
-  onPubSubHostChanged?: () => Promise<void>;
-  createDataForInitialSync?: () => Promise<object>;
 }
 
 export enum RequestType {
@@ -33,8 +27,48 @@ export enum RequestType {
   SyncCompleted = "sc",
 }
 
-export class Korona {
-  public peer?: Peer;
+export type KoronaEvents = {
+  /**
+   * When your peer is ready for use
+   */
+  open: (peerId: string) => Promise<void>;
+  /**
+   * When another peer just connected to you and tries to sync data with you,
+   * you send some data back.
+   */
+  sync: (send: (data: any) => void, peerId: string) => Promise<void>;
+  /**
+   * When a new peer joined the P2P network
+   */
+  peerJoined: (peerId: string) => Promise<void>;
+  /**
+   * When a peer left the P2P network
+   */
+  peerLeft: (peerId: string) => Promise<void>;
+  /**
+   * When your peer gets disconnnected from the server but keep the connections alive in the P2P network. Will not be able to accept new peer connections.
+   */
+  disconnected: () => Promise<void>;
+  /**
+   * Emitted when the peer is destroyed and can no longer accept or create any new connections. At this time, the peer's connections will all be closed.
+   */
+  close: () => Promise<void>;
+  /**
+   * When there is peer error: https://peerjs.com/docs/#peeron-error
+   */
+  error: (error: Error) => Promise<void>;
+  /**
+   * When you receive data from other peers
+   */
+  data: (data: any) => Promise<void>;
+  /**
+   * When the PubSub host changed,
+   */
+  pubsubHostChanged: () => Promise<void>;
+};
+
+export class Korona extends (EventEmitter as new () => TypedEmitter<KoronaEvents>) {
+  private peer?: Peer;
   private connections: DataConnection[] = [];
   private outConns = new Set<string>();
   private inConns = new Set<string>();
@@ -46,13 +80,6 @@ export class Korona {
   private requestingConnectionToPeers = new Set<string>();
   private maxPeers: number;
   private versionVector?: VersionVector;
-  private _onOpen?: (peerId: string) => Promise<void>;
-  private _onDisconnected?: () => Promise<void>;
-  private _onData?: (data: any, connection: DataConnection) => Promise<void>;
-  private _onPeerJoined?: (peerId: string) => Promise<void>;
-  private _onPeerLeft?: (peerId: string) => Promise<void>;
-  private _onPubSubHostChanged?: () => Promise<void>;
-  private _createDataForInitialSync?: () => Promise<object>;
   private _options?: KoronaOptions;
 
   /**
@@ -62,6 +89,8 @@ export class Korona {
   private networkTimestamps: { [key: string]: number } = {};
 
   constructor(options: KoronaOptions) {
+    super();
+
     this._options = options;
     this.connections = [];
     this.outConns = new Set<string>();
@@ -75,21 +104,7 @@ export class Korona {
       this.maxPeers = 2;
     }
 
-    // Bind callbacks
-    this._onOpen = options.onOpen;
-    this._onDisconnected = options.onDisconnected;
-    this._onData = options.onData;
-    this._onPeerJoined = options.onPeerJoined;
-    this._onPeerLeft = options.onPeerLeft;
-    this._onPubSubHostChanged = options.onPubSubHostChanged;
-    this._createDataForInitialSync = options.createDataForInitialSync;
-    if (!this._createDataForInitialSync) {
-      this._createDataForInitialSync = async () => {
-        return {};
-      };
-    }
-
-    const peerId = options.peerId || randomID();
+    const peerId = options.peerId || randomId();
 
     if (options.roomId) {
       // pubsub
@@ -113,39 +128,31 @@ export class Korona {
     }
 
     const oldPeer = this.peer;
-    this._onOpen = async (pid) => {
+    const extraAction = async (pid: string) => {
       // console.log("* room host created", pid);
       if (oldPeer) {
         // console.log("* closing old peer: ", oldPeer.id, [...this.network]);
         this.network.delete(oldPeer.id);
         oldPeer.destroy();
       }
-      if (this._options?.onOpen) {
-        await this._options.onOpen(pid);
-      }
-      if (this._onPubSubHostChanged) {
-        this._onPubSubHostChanged();
-      }
+      this.emit("pubsubHostChanged");
     };
     this.peer = new Peer(this._options.roomId, this._options.peerJSOptions);
-    this.onOpen();
+    this.onOpen(extraAction);
     this.peer.on("error", async (err: any) => {
       // Room host already exists
       if (err.type === "unavailable-id") {
         // console.log("* room host already exists");
         if (!oldPeer) {
           // Initialize peer
-          const peerId = this._options?.peerId || randomID();
-          this._onOpen = async (pid) => {
+          const peerId = this._options?.peerId || randomId();
+          const extraAction = async (pid: string) => {
             if (this._options?.roomId) {
               await this.requestConnection(this._options?.roomId, pid);
             }
-            if (this._options?.onOpen) {
-              await this._options.onOpen(pid);
-            }
           };
           this.peer = new Peer(peerId, this._options?.peerJSOptions);
-          this.onOpen();
+          this.onOpen(extraAction);
         } else {
           // Reconnect to room
           this.peer = oldPeer;
@@ -168,10 +175,7 @@ export class Korona {
             await this.connectToPeer(this._options?.roomId);
           }
         }
-
-        if (this._onPubSubHostChanged) {
-          this._onPubSubHostChanged();
-        }
+        this.emit("pubsubHostChanged");
       }
     });
   }
@@ -182,7 +186,7 @@ export class Korona {
    * @param from
    * @returns
    */
-  public send(operation: object, from?: DataConnection) {
+  public async broadcast(operation: object, from?: DataConnection) {
     let operationJSON: any;
     let fromPeerId: string;
     if (!this.peer?.id || !this.versionVector) {
@@ -220,7 +224,7 @@ export class Korona {
   /**
    * Send data to a peer.
    */
-  public async sendToPeer(peerId: string, operation: object) {
+  public async send(peerId: string, operation: object) {
     let operationJSON: any;
     let fromPeerId: string;
     if (peerId === this.peer?.id) {
@@ -248,7 +252,7 @@ export class Korona {
     }
   }
 
-  private onOpen() {
+  private onOpen(extraAction?: (id: string) => Promise<void>) {
     this.peer?.on("open", async (id: string) => {
       if (!this.versionVector) {
         this.versionVector = new VersionVector(id);
@@ -282,14 +286,18 @@ export class Korona {
       }*/
       // this.network = [];
 
+      this.emit("open", id);
+
       this.onPeerConnection();
       this.onError();
       this.onDisconnected();
-      await this.addToNetwork(id);
+      this.onClose();
 
-      if (this._onOpen) {
-        await this._onOpen(id);
+      if (extraAction) {
+        await extraAction(id);
       }
+
+      await this.addToNetwork(id);
     });
   }
 
@@ -358,15 +366,22 @@ export class Korona {
       if (!this.peer?.disconnected && !this.hasReachMax()) {
         await this.findNewTarget();
       }
+
+      this.emit("error", err);
     });
   }
 
   private onDisconnected() {
     this.peer?.on("disconnected", () => {
       // Disconnected
-      if (this._onDisconnected) {
-        this._onDisconnected();
-      }
+      this.emit("disconnected");
+    });
+  }
+
+  private onClose() {
+    this.peer?.on("close", () => {
+      // Close
+      this.emit("close");
     });
   }
 
@@ -509,14 +524,10 @@ export class Korona {
   private async addToNetwork(peerId: string, timestamp: number = Date.now()) {
     if (!this.network.has(peerId)) {
       // console.log("* addToNetwork: ", peerId, Array.from(this.network));
-
       this.network.add(peerId);
+      this.emit("peerJoined", peerId);
 
-      if (this._onPeerJoined) {
-        this._onPeerJoined(peerId);
-      }
-
-      this.send({
+      await this.broadcast({
         type: RequestType.AddToNetwork,
         peerId: peerId,
         timestamp,
@@ -550,11 +561,9 @@ export class Korona {
       // console.log("* removeFromNetwork: ", peerId, Array.from(this.network));
 
       this.network.delete(peerId);
-      if (this._onPeerLeft) {
-        this._onPeerLeft(peerId);
-      }
+      this.emit("peerLeft", peerId);
 
-      this.send({
+      await this.broadcast({
         type: RequestType.RemoveFromNetwork,
         peerId: peerId,
         timestamp,
@@ -683,11 +692,9 @@ export class Korona {
     ) {
       this.versionVector.update(new Version(v.p, v.c));
       if (!("s" in v)) {
-        this.send(operation, connection);
+        await this.broadcast(operation, connection);
       }
-      if (this._onData) {
-        await this._onData(operation, connection);
-      }
+      this.emit("data", operation);
     }
   }
 
@@ -716,27 +723,70 @@ export class Korona {
       this.versionVector?.increment();
       // console.log("* handleSyncCompleted: ", fromPeerId);
       let connection = await this.connectToPeer(fromPeerId);
-      const dataToSend = JSON.stringify(
-        Object.assign(
-          this._createDataForInitialSync
-            ? this._createDataForInitialSync()
-            : {},
-          {
-            _v: {
-              p: this.peer?.id,
-              c: this.versionVector?.localVersion.counter,
-            },
-          }
-        )
+      this.emit(
+        "sync",
+        (data: any) => {
+          const dataToSend = JSON.stringify(
+            Object.assign(data || {}, {
+              _v: {
+                p: this.peer?.id,
+                c: this.versionVector?.localVersion.counter,
+              },
+            })
+          );
+          connection.send(dataToSend);
+        },
+        fromPeerId
       );
-      connection.send(dataToSend);
     }
   }
 
-  public isPubSubHost(): boolean {
+  public isPubsubHost(): boolean {
     return (
       this._options?.roomId !== undefined &&
       this.peer?.id === this._options?.roomId
     );
+  }
+
+  get id() {
+    return this.peer?.id;
+  }
+
+  /**
+   * `false` if there is an active connection to the PeerServer.
+   */
+  get disconnected() {
+    return !this.peer || this.peer?.disconnected;
+  }
+
+  /**
+   * `true` if this peer and all of its connections can no longer be used.
+   */
+  get destroyed() {
+    return !this.peer || this.peer?.destroyed;
+  }
+
+  /**
+   * Close the connection to the server, leaving all existing data and media connections intact.
+   * `peer.disconnected` will be set to true and the disconnected event will fire.
+   *
+   * This cannot be undone; the respective peer object will no longer be able to create or receive any connections and its ID will be forfeited on the (cloud) server.
+   */
+  public disconnect() {
+    return this.peer?.disconnect();
+  }
+
+  /**
+   * Attempt to reconnect to the server with the peer's old ID. Only disconnected peers can be reconnected. Destroyed peers cannot be reconnected. If the connection fails (as an example, if the peer's old ID is now taken), the peer's existing connections will not close, but any associated errors events will fire.
+   */
+  public reconnect() {
+    return this.peer?.reconnect();
+  }
+
+  /**
+   * Close the connection to the server and terminate all existing connections. `peer.destroyed` will be set to true.
+   */
+  public destroy() {
+    return this.peer?.destroy();
   }
 }
